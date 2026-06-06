@@ -18,8 +18,9 @@ interface Props {
   color?: string;
 }
 
-// Each icon is a function of stroke color → array of svg child elements.
-const P = (d: string, key?: string | number) => <Path key={key} d={d} />;
+// Each icon is a function returning svg child elements. Key defaults to the path data
+// so single-element arrays still satisfy React's unique-key requirement.
+const P = (d: string, key?: string | number) => <Path key={key ?? d} d={d} />;
 
 const ICONS: Record<IconName, () => React.ReactNode> = {
   settings: () => [
