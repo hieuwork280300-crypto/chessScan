@@ -37,7 +37,10 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-sharing",
+      ["expo-camera", { "cameraPermission": "Allow Chess Scan to use the camera to scan boards and score sheets." }],
+      ["expo-image-picker", { "photosPermission": "Allow Chess Scan to pick a chess photo from your library." }]
     ],
     "experiments": {
       "typedRoutes": true,

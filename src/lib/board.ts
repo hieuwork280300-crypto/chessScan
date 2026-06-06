@@ -54,6 +54,28 @@ export function computeLinePositions(startPos: Position, plies: Ply[]): Position
   return out;
 }
 
+// Position → FEN placement field (+ turn). Castling defaulted to '-' (editor edits turn only).
+export function posToFen(pos: Position, turn: 'w' | 'b' = 'w'): string {
+  const ranks: string[] = [];
+  for (let r = 8; r >= 1; r--) {
+    let row = '';
+    let empty = 0;
+    for (let f = 0; f < 8; f++) {
+      const piece = pos[FILES[f] + r];
+      if (!piece) {
+        empty++;
+      } else {
+        if (empty) { row += empty; empty = 0; }
+        const letter = piece[1];
+        row += piece[0] === 'w' ? letter.toUpperCase() : letter.toLowerCase();
+      }
+    }
+    if (empty) row += empty;
+    ranks.push(row);
+  }
+  return `${ranks.join('/')} ${turn} - - 0 1`;
+}
+
 // Compact eval: +0.4 / −1.2 / 0.0
 export function fmtCp(cp: number): string {
   const v = Math.abs(cp / 100).toFixed(1);
