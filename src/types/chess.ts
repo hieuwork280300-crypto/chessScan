@@ -19,6 +19,8 @@ export interface Ply {
   color?: Color;
   evalCp?: number;
   rook?: [Square, Square];      // castling: [rookFrom, rookTo]
+  remove?: Square;              // en-passant captured pawn square
+  promotion?: string;           // promotion piece letter (q/r/b/n)
   quality?: 'best' | 'inaccuracy' | 'mistake';
   inaccuracy?: boolean;
   better?: { from: Square; to: Square; san: string; name: string; why: string };

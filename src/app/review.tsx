@@ -1,8 +1,8 @@
 // Game Review — unified screen for position + sheet. Interactive multi-PV: tap a line to
 // select it; the move strip + board step through that line. Ported from the prototype.
 
-import { useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 
@@ -17,7 +17,8 @@ import { useApp } from '@/lib/AppContext';
 import { computeLinePositions, fmtCp } from '@/lib/board';
 import { buildLines, startPosFor, GAME_PLIES } from '@/lib/mockData';
 import { sharePGN, copyText } from '@/lib/share';
-import { STD_FEN, SCAN_FEN } from '@/constants/chess';
+import { useEngine } from '@/lib/engine/EngineProvider';
+import { STD_FEN, SCAN_FEN, STARTING_FEN } from '@/constants/chess';
 import { C, ink, sub } from '@/constants/colors';
 import type { MultiPVLine, Ply, ReviewMode } from '@/types/chess';
 
@@ -91,8 +92,36 @@ export default function Review() {
   const isSheet = mode === 'sheet';
   const insets = useSafeAreaInsets();
 
-  const lines = useMemo(() => buildLines(mode), [mode]);
   const startPos = useMemo(() => startPosFor(mode), [mode]);
+  const { analyze } = useEngine();
+
+  // Lines start as the mock (instant), then get replaced by real engine output.
+  const [lines, setLines] = useState<MultiPVLine[]>(() => buildLines(mode));
+  const [analyzing, setAnalyzing] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLines(buildLines(mode));
+    setAnalyzing(true);
+    (async () => {
+      try {
+        const fen = isSheet ? STARTING_FEN : `${SCAN_FEN} w - - 0 1`;
+        const res = await analyze(fen, { multipv: 3, depth: 16 });
+        if (cancelled || !res.lines.length) return;
+        if (isSheet) {
+          setLines([{ evalCp: 0, badge: 'yourgame', plies: GAME_PLIES }, ...res.lines.slice(0, 2)]);
+        } else {
+          setLines(res.lines.slice(0, 3).map((l, i) => (i === 0 ? { ...l, badge: 'best' } : l)));
+        }
+      } catch {
+        /* keep mock lines */
+      } finally {
+        if (!cancelled) setAnalyzing(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   const [sel, setSel] = useState(0);
   const [ply, setPly] = useState(0);
@@ -205,6 +234,12 @@ export default function Review() {
 
       {/* multi-PV */}
       <ScrollView className="flex-1 px-4 pt-3" showsVerticalScrollIndicator={false}>
+        {analyzing && (
+          <View className="flex-row items-center gap-2 pb-2 px-1">
+            <ActivityIndicator size="small" color={C.sage} />
+            <Text className="text-[12px] text-sub dark:text-sub-d">Analyzing…</Text>
+          </View>
+        )}
         <View className="rounded-[12px] overflow-hidden border border-line dark:border-line-d">
           {lines.map((l, i) => (
             <View key={i} className={i ? 'border-t border-[#F0EBE0] dark:border-[#23262b]' : ''}>

@@ -26,9 +26,12 @@ export function fenToPos(fen: string): Position {
 
 export function applyMove(pos: Position, m: Ply): Position {
   const np: Position = { ...pos };
-  np[m.to] = np[m.from];
+  const moving = np[m.from];
+  np[m.to] = moving;
   delete np[m.from];
-  if (m.rook) {
+  if (m.remove) delete np[m.remove];           // en passant
+  if (m.promotion && moving) np[m.to] = moving[0] + m.promotion.toUpperCase();
+  if (m.rook) {                                 // castling
     np[m.rook[1]] = np[m.rook[0]];
     delete np[m.rook[0]];
   }

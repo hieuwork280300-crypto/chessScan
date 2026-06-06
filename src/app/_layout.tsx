@@ -11,6 +11,7 @@ import {
 import { Caveat_500Medium } from '@expo-google-fonts/caveat';
 
 import { AppProvider, useApp } from '@/lib/AppContext';
+import { EngineProvider } from '@/lib/engine/EngineProvider';
 import { Toast } from '@/components/Toast';
 
 SplashScreen.preventAutoHideAsync();
@@ -44,7 +45,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AppProvider>
-          <RootStack />
+          <EngineProvider>
+            <RootStack />
+          </EngineProvider>
         </AppProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
