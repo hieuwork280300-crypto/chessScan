@@ -1,81 +1,108 @@
 ---
 name: design-system
-description: Visual design system for the Chess Scan app — sage/cream palette, light/dark theming, spacing, typography, and the shared UI primitives (Button, Input, Modal, SegmentedControl). Load when building any screen or component, choosing colors/spacing, implementing dark mode, or ensuring visual consistency.
+description: Visual design system for the Chess Scan app — exact tokens from the UI prototype (sage/cream, paper aesthetic), NativeWind styling, light/dark theming, Inter+Caveat fonts, and shared UI primitives. Load when building any screen/component, choosing colors/spacing, implementing dark mode, or porting a prototype screen to React Native.
 ---
 
-# Design System
+# Design System (NativeWind)
 
-Calm, paper-and-felt aesthetic: sage green + cream. Both light and dark mode are required. Pull every color/space token from `constants/` — never hardcode hex in a screen.
+Styling = **NativeWind v4** (Tailwind for React Native). We reuse the prototype's Tailwind classes
+almost 1:1. The canonical design is `design/ChessScan.html` + `design/ui-prototype-src/`. When
+building a screen, open the matching prototype file and port its classes.
 
-## Palette (`constants/colors.ts`)
+## Exact tokens (ground truth from the prototype `T` object)
 
-Core brand:
-- **Sage** `#5C7A6B` — primary accent, dark board squares, selected states, required-field `*`.
-- **Cream** `#FAF7F2` (app bg light), `#F5EFE0` (light board squares / surfaces).
+| Role | Light | Dark | Tailwind class |
+|---|---|---|---|
+| bg | `#FAF7F2` | `#16181B` | `bg-bg dark:bg-bg-d` |
+| ink (text) | `#1A1A1A` | `#ECECEC` | `text-ink dark:text-ink-d` |
+| sub (muted) | `#6B6B6B` | `#9C9C9C` | `text-sub dark:text-sub-d` |
+| card | `#FFFFFF` | `#1E2024` | `bg-card dark:bg-card-d` |
+| border | `#ECE6DC` | `#2A2D31` | `border-line dark:border-line-d` |
+| **sage** (brand) | `#5C7A6B` | — | `bg-sage` / `text-sage` |
+| **amber** (accent) | `#D4A24A` | — | `text-amber` |
 
-Define semantic tokens per theme, not raw hex in components:
-```ts
-export const light = {
-  bg: '#FAF7F2', surface: '#FFFFFF', surfaceAlt: '#F5EFE0',
-  text: '#1F2A24', textMuted: '#5B675F', border: '#E3DCCF',
-  primary: '#5C7A6B', primaryText: '#FFFFFF',
-  boardLight: '#F5EFE0', boardDark: '#5C7A6B',
-  ok: '#3E7C5A', warn: '#C98A2B', danger: '#B5503F',   // green / amber / red flags
+Board squares: light `#E8DDC8`, dark (the brown) `#A88B6C`. Paper (score sheet) `#FCFAF4` /
+border `#EadFC9`, ink `#33312b`, label `#9a8e74`. Validation flags reuse: ok = sage, warn = amber,
+danger = a red (`#C2533F`-ish). Safe areas: top `54`, bottom `30`.
+
+### tailwind.config.js (mirror these)
+```js
+module.exports = {
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  presets: [require('nativewind/preset')],
+  darkMode: 'class',
+  theme: { extend: {
+    colors: {
+      sage: '#5C7A6B', amber: '#D4A24A',
+      bg: '#FAF7F2', 'bg-d': '#16181B',
+      ink: '#1A1A1A', 'ink-d': '#ECECEC',
+      sub: '#6B6B6B', 'sub-d': '#9C9C9C',
+      card: '#FFFFFF', 'card-d': '#1E2024',
+      line: '#ECE6DC', 'line-d': '#2A2D31',
+      board: { light: '#E8DDC8', dark: '#A88B6C' },
+      paper: '#FCFAF4',
+    },
+    fontFamily: { sans: ['Inter'], hand: ['Caveat'] },
+  } },
 };
-export const dark = {
-  bg: '#15201A', surface: '#1E2B24', surfaceAlt: '#243029',
-  text: '#ECEFE9', textMuted: '#9DAaa1', border: '#33403A',
-  primary: '#7FA38C', primaryText: '#10231A',
-  boardLight: '#3A4A41', boardDark: '#5C7A6B',
-  ok: '#5FB07F', warn: '#E0A84B', danger: '#D67462',
-};
-export type Theme = typeof light;
 ```
-- Validation flags map to `ok`/`warn`/`danger` (green/amber/red) — the score-sheet semantics.
-- Board colors flow into react-native-chessboard `colors={{ white: theme.boardLight, black: theme.boardDark }}`.
 
-## Theming (`ThemeContext` + `useDarkMode`)
+## NativeWind setup essentials
 
-- `ThemeContext` exposes the active `Theme` object + `toggle`. Persist choice in AsyncStorage (`app-settings.darkMode`).
-- Components read theme via `const t = useTheme()` and build styles inline or via a `makeStyles(t)` factory — NOT a static `StyleSheet` (which can't see runtime theme).
-- Default to system scheme on first launch (`useColorScheme()`), then respect the user's explicit toggle.
+- Install: `nativewind`, `tailwindcss`, `react-native-reanimated`, `react-native-safe-area-context`.
+- `babel.config.js`: presets `['babel-preset-expo', { jsxImportSource: 'nativewind' }]`, plugin `'nativewind/babel'` (+ reanimated plugin LAST).
+- `metro.config.js`: wrap with `withNativeWind(config, { input: './global.css' })`.
+- `global.css`: `@tailwind base; @tailwind components; @tailwind utilities;` — import it once in `app/_layout.tsx`.
+- `nativewind-env.d.ts`: `/// <reference types="nativewind/types" />` so `className` typechecks.
+- Dark mode: `darkMode: 'class'` + `useColorScheme()` from nativewind, toggled by wrapping content in a `<View className={dark ? 'dark' : ''}>` (matches the prototype's approach).
 
-## Spacing & radius (`constants/` — add a `spacing.ts`)
+## Web → RN element mapping (porting cheatsheet)
 
-4-pt scale: `xs:4, sm:8, md:12, lg:16, xl:24, xxl:32`. Radius: `sm:8, md:12, lg:16, pill:999`.
-Screen horizontal padding = `lg (16)`. Card padding = `lg`. Gap between tiles = `md`.
+| Prototype (web) | React Native + NativeWind |
+|---|---|
+| `<div className="…">` | `<View className="…">` |
+| `<button onClick={fn}>` | `<Pressable onPress={fn}>` (or `TouchableOpacity`) |
+| text inside any tag | wrap in `<Text>` — RN has no bare text |
+| `<img>` | `<Image>` from `expo-image` |
+| `active:scale-[.985]` | use Reanimated/`Pressable` `pressed` state; NativeWind supports `active:` |
+| `shadow-[0_8px_22px_…]` | NativeWind maps to `boxShadow` on web; on native use `shadow-*` + `elevation`/`style` |
+| `overflow-x-auto` | `<ScrollView horizontal showsHorizontalScrollIndicator={false}>` |
+| `grid grid-cols-[…]` | fl: RN has no grid → `flex-row` + `flex-1` / fixed widths |
+| `backdrop-blur` | `expo-blur` `<BlurView>` (or a translucent View fallback) |
+| `tabular-nums` | `style={{ fontVariant: ['tabular-nums'] }}` |
+| `text-wrap: balance/pretty` | not supported — omit |
 
-## Typography (`constants/fonts.ts`)
+Keep arbitrary values (`min-h-[52px]`, `rounded-[20px]`, `text-[16px]`) — NativeWind supports them.
 
-- System font v1 (ship fast); optional custom font later via `expo-font`.
-- Scale: `h1: 28/700`, `h2: 22/600`, `title: 18/600`, `body: 16/400`, `label: 14/600`, `caption: 13/400` (size/weight).
-- Numbers/eval use tabular feel — keep eval text monospace-ish alignment (fixed width via `fontVariant: ['tabular-nums']`).
+## Fonts (Inter + Caveat)
 
-## UI primitives (`components/ui/`)
+- Load via `@expo-google-fonts/inter` + `@expo-google-fonts/caveat` + `expo-font` `useFonts`.
+- Gate render on fonts loaded (SplashScreen.preventAutoHideAsync until ready).
+- `font-sans` = Inter (everything), `font-hand` = Caveat (ONLY score-sheet handwritten move glyphs, e.g. `<Text className="font-hand text-[22px]">e4</Text>`).
 
-Build these first (Day 1); every screen composes them.
+## UI primitives (`components/ui/`) — port these from `04_screens-onboarding-home.jsx`
 
-- **Button** — variants `primary | secondary | ghost | danger`, sizes `sm | md`, `loading` (spinner), `disabled`, optional leading icon. Min touch target 44px. Primary = sage bg / cream text.
-- **Input** — label, value, `onChangeText`, `placeholder`, `error` (red border + message), optional `required` (sage `*`). Themed border, focus ring = primary.
-- **Modal** — bottom-sheet style with drag handle (used by SaveGameDialog). Backdrop dim, `KeyboardAvoidingView` inside, rounded top corners `lg`.
-- **SegmentedControl** — equal-width segments (Result picker `[1-0][½-½][0-1][*]`, turn White/Black). Selected = sage fill.
+- **PrimaryButton** — `w-full min-h-[52px] rounded-2xl bg-sage text-white text-[16px] font-semibold`, centered icon+label, `active:scale-[.985]`, sage glow shadow.
+- **TextLink** — `text-sage text-[16px] font-medium min-h-[44px]`, optional trailing icon, `active:opacity-60`.
+- **IconButton / DarkToggle** — `w-11 h-11 rounded-full`, `active:bg-black/5 dark:active:bg-white/10`. DarkToggle swaps `moon`/`sun`.
+- **PageDots** — active dot `w-6 bg-sage`, inactive `w-1.5 bg-[#D8CFC0] dark:bg-[#33373c]`.
+- **Card / Tile** — `rounded-[20px] bg-card dark:bg-card-d border border-line dark:border-line-d`, soft shadow, `active:scale-[.99]`.
 
-Rules:
-- One file per primitive, `interface Props`, forward style overrides via a `style?` prop.
-- Icons from `@expo/vector-icons`; pick one family (e.g. Feather/Ionicons) and stick to it.
+Min touch target 44px. One primitive per file, `interface Props`, accept `className?` passthrough.
 
-## Component-specific notes
+## Component specifics
 
-- **EvalBar** — vertical, 16px wide, sage(white side)/dark(black side) fill. Clamp cp, full bar on mate. Animate fill on ply change.
-- **Board** — square, `width = screenWidth - 2*16`, `aspectRatio: 1`. Selected-line arrow overlays.
-- **MoveStrip** — horizontal `FlatList`, 8 visible, auto-scroll to `currentPly`, current move highlighted with `primary` underline.
-- **Multi-PV lines** — selected line: filled dot `●` + `▼`; others: hollow `○` + `▶`. BEST badge (position) / YOUR GAME badge (sheet) on line 0. Eval prefix (`+0.36`, `#3`) tabular-aligned.
-- **SaveGameDialog** — White + Black inputs in a `flexDirection:'row'` with `flex:1` each + `gap: md` (EQUAL width, this is called out as critical).
+- **Board** — see `chess-domain` + prototype `02_chessboard.jsx`. Square, arrows overlay (sage, optional glow). Used at sizes 72/88/214/full.
+- **Eval / multi-PV** — selected line filled dot + `▼`, others hollow + `▶`; BEST / YOUR GAME badge on line 0; eval prefix `+0.36` / `#3` with `tabular-nums`.
+- **Toast** — bottom center pill `bg-[#1A1A1A] dark:bg-[#33373d] text-white rounded-full`, check icon in sage, auto-dismiss ~2.4s.
+- **Score-sheet paper** — `bg-paper border-[#EadFC9]`, dashed row separators, `font-hand` moves, slight rotation for the art.
 
 ## Do NOT add (Game Review cleanup list)
 
-Opening-detection text · "roughly equal" labels · engine warning cards · plain-English explanations in multi-PV · eval sparkline · W/D/B % labels. Keep the analysis surface clean and numeric.
+Opening-detection text · "roughly equal" labels · engine warning cards · plain-English explanations
+in multi-PV · eval sparkline · W/D/B % labels. Keep analysis clean and numeric.
 
-## States — every screen needs
+## States — every screen
 
-Loading (skeleton/spinner) · Error (message + retry) · Empty (saved-games empty → friendly CTA to scan). Don't ship a screen with only the happy path.
+Loading · error (+retry) · empty (saved games empty → CTA to scan). Animations exist in the
+prototype (`anim-slideup/fadein/popin`) — reproduce with Reanimated; respect reduced-motion.

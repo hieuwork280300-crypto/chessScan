@@ -1,17 +1,30 @@
+# macOS
 .DS_Store
 
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-env/
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
 
-# Jupyter
-.ipynb_checkpoints/
+# Native
+ios/
+android/
+*.orig.*
 
-# Models / data
-*.pt
-*.pth
-*.onnx
+# Metro
+.metro-health-check*
+
+# Env / secrets
+.env
+.env.local
+*.local
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Typescript
+*.tsbuildinfo

@@ -11,6 +11,8 @@
 Target user: club amateur (USCF 800–1800). US first. v1 = no backend, no auth, AsyncStorage only.
 
 Full spec: `.claude/skills/chess-scan-build/references/project-spec.md`.
+**Visual + interaction ground truth:** `design/ChessScan.html` (interactive prototype) and
+`design/ui-prototype-src/*.jsx` (decoded React source). Port screens from there. Styling = NativeWind.
 
 ## Skills — load the right one
 
@@ -43,7 +45,7 @@ Skills are loaded on demand — when a task touches a domain, open its SKILL.md 
 - **Files:** components `PascalCase.tsx`, lib/hooks/utils `camelCase.ts`, routes follow expo-router naming.
 - **Components:** function components + hooks only. One component per file. Props typed via `interface Props`.
 - **Imports:** absolute via `@/` alias (configure in `tsconfig.json` + babel). No deep `../../../`.
-- **Styles:** `StyleSheet.create` at file bottom; pull colors/spacing from `constants/`, never hardcode hex.
+- **Styles:** NativeWind (`className`) using tokens from `tailwind.config.js`; never hardcode hex in screens. The UI is ported from the prototype in `design/` — match it.
 - **Async:** always `try/catch` around Gemini/engine/network calls; surface a user-facing error + retry.
 - **chess.js is the single source of truth** for legality, FEN, SAN. Never hand-roll move logic.
 

@@ -58,7 +58,8 @@ const out = await ImageManipulator.manipulateAsync(
 
 ## Layout / styling gotchas
 
-- No CSS — `StyleSheet.create`, flexbox only (default `flexDirection: 'column'`).
+- **Styling = NativeWind** (`className`), not raw StyleSheet — see the `design-system` skill for setup + token mapping. Use `style={}` only for dynamic/computed values NativeWind can't express.
+- Flexbox only (default `flexDirection: 'column'`); RN has no CSS grid or `position: fixed`.
 - Use `SafeAreaView` / `useSafeAreaInsets` (react-native-safe-area-context) for notch/home-bar padding.
 - Text MUST be inside `<Text>`; bare strings in a `<View>` crash.
 - `KeyboardAvoidingView` for the Save dialog inputs (`behavior="padding"` iOS, `"height"` Android).
