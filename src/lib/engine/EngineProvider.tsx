@@ -12,27 +12,30 @@ import { uciPvToPlies, sideToMove, toWhiteCp, toWhiteMate } from '@/lib/engine/u
 import type { AnalyzeOptions, EngineResult } from '@/lib/engine/types';
 import type { MultiPVLine } from '@/types/chess';
 
-// Stockfish asm.js (single file, no SharedArrayBuffer / no special headers → WebView-safe).
-const SF_URL = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js';
+// Stockfish (niklasf Emscripten build): a Web Worker script + sibling .wasm. We fetch the
+// worker source, prepend Module.locateFile so the worker pulls the .wasm from the same CDN
+// dir, and run it as a blob Worker (cross-origin Worker is blocked, blob isn't).
+const SF_DIR = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/';
+const SF_URL = SF_DIR + 'stockfish.js';
 
 const HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
 <body><script>
   var post = function(m){ try{ window.ReactNativeWebView.postMessage(m); }catch(e){} };
   window.onerror = function(msg){ post('@@error:'+msg); };
-  var engine = null;
-  var s = document.createElement('script');
-  s.src = ${JSON.stringify(SF_URL)};
-  s.onload = function(){
-    try {
-      if (typeof STOCKFISH !== 'function') { post('@@error:no STOCKFISH global'); return; }
-      engine = STOCKFISH();
-      engine.onmessage = function(e){ post(typeof e === 'string' ? e : (e && e.data) || ''); };
-      window.__cmd = function(c){ try{ engine.postMessage(c); }catch(err){ post('@@error:'+err); } };
-      post('@@ready');
-    } catch(err){ post('@@error:'+err); }
-  };
-  s.onerror = function(){ post('@@error:script load failed'); };
-  document.body.appendChild(s);
+  (function(){
+    fetch(${JSON.stringify(SF_URL)})
+      .then(function(r){ if(!r.ok) throw new Error('fetch '+r.status); return r.text(); })
+      .then(function(code){
+        var shim = 'var Module={locateFile:function(p){return '+${JSON.stringify(JSON.stringify(SF_DIR))}+'+p;}};\\n';
+        var blob = new Blob([shim+code], {type:'application/javascript'});
+        var engine = new Worker(URL.createObjectURL(blob));
+        engine.onmessage = function(e){ post(typeof e === 'string' ? e : (e && e.data) || ''); };
+        engine.onerror = function(err){ post('@@error:worker '+(err && err.message || err)); };
+        window.__cmd = function(c){ try{ engine.postMessage(c); }catch(err){ post('@@error:'+err); } };
+        post('@@ready');
+      })
+      .catch(function(err){ post('@@error:'+err); });
+  })();
 </script></body></html>`;
 
 interface PendingState {
@@ -92,18 +95,29 @@ export function EngineProvider({ children }: { children: ReactNode }) {
 
   const runWasm = useCallback((fen: string, opts: AnalyzeOptions) => {
     const multipv = opts.multipv ?? 3;
-    const depth = opts.depth ?? 15;
+    const depth = opts.depth ?? 14;
     return new Promise<EngineResult>((resolve, reject) => {
+      let settled = false;
+      // Overall guard: never hang, even if the engine never becomes ready (CDN/wasm fail).
+      const guard = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        const p = pending.current;
+        if (p) { clearTimeout(p.timer); pending.current = null; }
+        if (p && p.lines.size) finish({ ...p, resolve }); // resolve with partial if we have it
+        else reject(new Error('engine timeout'));
+      }, 30000);
+      const wrappedResolve = (r: EngineResult) => { if (settled) return; settled = true; clearTimeout(guard); resolve(r); };
+      const wrappedReject = (e: unknown) => { if (settled) return; settled = true; clearTimeout(guard); reject(e); };
       const start = () => {
         const turn = sideToMove(fen);
         const timer = setTimeout(() => {
-          // safety: resolve with whatever we have, or reject
           const p = pending.current;
           pending.current = null;
           if (p && p.lines.size) finish(p);
-          else reject(new Error('engine timeout'));
-        }, 20000);
-        pending.current = { fen, turn, multipv, lines: new Map(), depth, resolve, reject, timer };
+          else wrappedReject(new Error('depth timeout'));
+        }, 22000);
+        pending.current = { fen, turn, multipv, lines: new Map(), depth, resolve: wrappedResolve, reject: wrappedReject, timer };
         send('ucinewgame');
         send('setoption name MultiPV value ' + multipv);
         send('position fen ' + fen);
