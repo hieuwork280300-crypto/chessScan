@@ -7,11 +7,21 @@ description: Stockfish / chess-engine integration for the Chess Scan app — UCI
 
 Defaults: **MultiPV=3, depth=18**. Engine speaks **UCI**; convert moves to SAN for display (see `chess-domain`).
 
-## Strategy: Option A → fallback Option B
+## Strategy — SHIPPED (v1)
 
-- **Option A — `react-native-stockfish`** (native, offline, preferred). Needs a **dev build** (not Expo Go). Test Week 2 Day 9.
-- **Option B — Lichess Cloud Eval API** (fallback if A is unreliable). Online, rate-limited.
-- **Option C — custom native module** (last resort, 1–2 weeks). Avoid unless A and B both fail.
+Implemented in `src/lib/engine/` behind a `ChessEngine` interface (`types.ts`):
+- **Primary — Stockfish WASM in a hidden WebView** (`EngineProvider.tsx`). Real engine, analyzes
+  ANY scanned position, **works in Expo Go** (no native build). Loads the niklasf Emscripten
+  build (`stockfish.js` worker + `.wasm`) from cdnjs as a **blob Worker** with `Module.locateFile`
+  pointing wasm fetch back to the CDN dir. Anti-hang guard timeouts. Verified on-device.
+- **Fast path — Lichess Cloud Eval** (`lichess.ts`). Instant real eval for KNOWN positions; returns
+  null on 404 → falls through to WASM. (Cannot be primary: scanned positions 404.)
+- `analyze(fen)` tries Lichess (≤1.8s) → WASM → else throws (Review keeps mock lines).
+- UCI→Ply via chess.js (`uci.ts`): legal replay, castling/en-passant/promotion, white-perspective cp.
+
+### Upgrade path (production)
+- **`react-native-stockfish`** (native, offline, fastest) via **EAS dev build** — slot behind the same
+  `ChessEngine` interface as a third backend when perf matters. Custom Swift/Kotlin = last resort.
 
 Wrap both behind ONE interface so screens never know which is running:
 ```ts
