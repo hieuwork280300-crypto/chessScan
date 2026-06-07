@@ -9,6 +9,8 @@ const KEYS = {
   dark: 'cs-dark',
   onboarding: 'cs-onboarding-done',
   games: 'cs-saved-games',
+  subscribed: 'cs-subscribed',
+  quiz: 'cs-quiz',
 } as const;
 
 export const DEFAULT_PROFILE: UserProfile = { displayName: '', defaultColor: 'white' };
@@ -70,5 +72,19 @@ export const setOnboardingDone = () => AsyncStorage.setItem(KEYS.onboarding, '1'
 // ── Saved games ──
 export const loadGames = () => getJSON<SavedGame[]>(KEYS.games, []);
 export const saveGames = (g: SavedGame[]) => setJSON(KEYS.games, g);
+
+// ── Subscription (stub now; backed by RevenueCat later) ──
+export async function loadSubscribed(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(KEYS.subscribed)) === '1';
+  } catch {
+    return false;
+  }
+}
+export const setSubscribed = (v: boolean) => AsyncStorage.setItem(KEYS.subscribed, v ? '1' : '0').catch(() => {});
+
+// ── Onboarding quiz answers (kept for later personalization) ──
+export const loadQuiz = () => getJSON<Record<string, string>>(KEYS.quiz, {});
+export const saveQuiz = (a: Record<string, string>) => setJSON(KEYS.quiz, a);
 
 export type { DefaultColor };
