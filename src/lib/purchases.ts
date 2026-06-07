@@ -12,22 +12,22 @@ import { loadSubscribed, setSubscribed } from '@/lib/storage';
 export interface Plan {
   id: string;
   title: string;
-  priceLabel: string;       // e.g. "799.000đ per year"
-  sublabel?: string;        // e.g. "then ..."
+  priceLabel: string;       // e.g. "then 799.000đ / year"
+  monthly?: string;         // value anchor, e.g. "~66.500đ / month"
   trialDays?: number;
-  badge?: string;           // "FREE"
+  badge?: string;           // "3-DAY FREE TRIAL"
+  ribbon?: string;          // "BEST VALUE"
   savePct?: number;         // 69
   oldPrice?: string;        // strikethrough
-  highlight?: boolean;
 }
 
 // Pricing mirrors the reference funnel (VND). Real prices come from store offerings later.
 export const PLANS: Plan[] = [
   {
-    id: 'annual', title: '3-Day Trial', priceLabel: 'then 799.000đ per year',
-    trialDays: 3, badge: 'FREE', savePct: 69, oldPrice: '2.548.000', highlight: true,
+    id: 'annual', title: 'Yearly', priceLabel: 'then 799.000đ / year', monthly: '~66.500đ / month',
+    trialDays: 3, badge: '3-DAY FREE TRIAL', ribbon: 'BEST VALUE', savePct: 69, oldPrice: '2.548.000',
   },
-  { id: 'weekly', title: 'Weekly Plan', priceLabel: '49.000đ per week' },
+  { id: 'weekly', title: 'Weekly', priceLabel: '49.000đ / week' },
 ];
 
 export const DEFAULT_PLAN_ID = 'annual';

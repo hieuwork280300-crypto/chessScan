@@ -24,14 +24,14 @@ const QUESTIONS: Question[] = [
     options: ['Find the best move', 'Review my games', 'Reach a higher rating', 'Learn tactics & patterns'] },
 ];
 
-function Progress({ step, count }: { step: number; count: number }) {
+function Progress({ step, count, dark }: { step: number; count: number; dark: boolean }) {
   return (
-    <View className="flex-row items-center">
+    <View className="flex-row" style={{ gap: 7 }}>
       {Array.from({ length: count }).map((_, i) => (
-        <View key={i} className="flex-row items-center" style={{ flex: i < count - 1 ? 1 : 0 }}>
-          <View className={'h-2 rounded-full ' + (i <= step ? 'w-2 bg-sage' : 'w-2 bg-[#D8CFC0] dark:bg-[#33373c]')} />
-          {i < count - 1 && <View className={'flex-1 h-[3px] mx-1.5 rounded-full ' + (i < step ? 'bg-sage' : 'bg-[#E4DCCD] dark:bg-[#2a2d31]')} />}
-        </View>
+        <View
+          key={i}
+          style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: i <= step ? C.sage : dark ? '#2a2d31' : '#E4DCCD' }}
+        />
       ))}
     </View>
   );
@@ -69,7 +69,8 @@ export default function Quiz() {
         </Pressable>
       </View>
       <View className="px-7 pt-2">
-        <Progress step={step} count={QUESTIONS.length} />
+        <Progress step={step} count={QUESTIONS.length} dark={dark} />
+        <Text className="mt-2 text-sub dark:text-sub-d" style={{ fontSize: 13 }}>Step {step + 1} of {QUESTIONS.length}</Text>
       </View>
 
       {/* question */}
