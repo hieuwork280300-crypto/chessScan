@@ -74,6 +74,15 @@ module.exports = {
 
 Keep arbitrary values (`min-h-[52px]`, `rounded-[20px]`, `text-[16px]`) — NativeWind supports them.
 
+**Gotchas seen in this project (use inline `style` to be safe):**
+- Large arbitrary font sizes (`text-[27px]`, `text-[32px]`) sometimes fail to apply via className
+  (Metro/NativeWind CSS-gen quirk) while small ones (`text-[13px]`–`text-[17px]`) work. For big
+  headings use `style={{ fontSize: N, fontWeight: '700' }}`.
+- An arbitrary `leading-[34px]` next to `text-[27px]` could drop the size class — prefer
+  `style={{ lineHeight: N }}` for arbitrary line-heights.
+- Empty bordered circles (`w-6 h-6 rounded-full border-2 border-[#hex]`) rendered as a dark dash;
+  for radio/indicator dots use inline `style={{ width, height, borderRadius, borderWidth, borderColor }}`.
+
 ## Fonts (Inter + Caveat)
 
 - Load via `@expo-google-fonts/inter` + `@expo-google-fonts/caveat` + `expo-font` `useFonts`.
