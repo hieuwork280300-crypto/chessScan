@@ -53,7 +53,7 @@ export default function Quiz() {
     if (!selected) return;
     if (isLast) {
       saveQuiz(answers);
-      router.push('/onboarding/paywall');
+      router.push('/onboarding/analyzing');
     } else {
       setStep(step + 1);
     }

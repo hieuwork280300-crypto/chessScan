@@ -20,9 +20,9 @@ export default function Welcome() {
         {/* hero */}
         <View className="items-center mb-12">
           <View
-            className="w-24 h-24 rounded-[28px] bg-sage items-center justify-center"
-            style={{ shadowColor: C.sage, shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 8 }}>
-            <Text style={{ fontSize: 46, color: '#fff', marginTop: -4 }}>♛</Text>
+            className="items-center justify-center"
+            style={{ width: 104, height: 104, borderRadius: 32, backgroundColor: C.sage, shadowColor: C.sage, shadowOpacity: 0.4, shadowRadius: 28, shadowOffset: { width: 0, height: 14 }, elevation: 10 }}>
+            <Text style={{ fontSize: 56, color: '#fff', marginTop: -4 }}>♛</Text>
           </View>
           <Text className="mt-6 text-ink dark:text-ink-d" style={{ fontSize: 30, fontWeight: '700' }}>Chess Scan</Text>
           <Text className="mt-2 text-sub dark:text-sub-d text-center" style={{ fontSize: 16, lineHeight: 22 }}>Scan any board. Get the best move in seconds.</Text>
