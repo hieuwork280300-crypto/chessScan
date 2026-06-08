@@ -33,8 +33,10 @@ Skills are loaded on demand — when a task touches a domain, open its SKILL.md 
 
 1. **v1 scope.** NO auth, NO move explanations, NO social/community. Persistence = AsyncStorage only.
    **Subscription IS in v1** (owner decision 2026-06): onboarding paywall funnel, free-trial→auto-renew.
-   Payments are abstracted in `lib/purchases.ts` (STUBBED in Expo Go) — swap to RevenueCat on an EAS
-   dev build (IAP can't run in Expo Go). Everything else → v2. Scope creep is still the #1 risk.
+   Payments are abstracted in `lib/purchases.ts`: **real RevenueCat** on a dev/prod build when
+   `EXPO_PUBLIC_RC_*` keys are set, **stub** in Expo Go (IAP can't run there). Owner must finish the
+   store/RevenueCat setup — see `.claude/skills/chess-scan-build/references/revenuecat-setup.md`.
+   Everything else → v2. Scope creep is still the #1 risk.
 2. **One recognition pipeline:** Gemini Flash (`gemini-2.5-flash`) only. Never reintroduce
    tensorflow_chessbot or chesscog (both dropped).
 3. **Unified Game Review** (`app/game/[id].tsx`) serves position scans AND score sheets.
