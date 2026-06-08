@@ -68,29 +68,30 @@ function Card({ opt, active, onPress, dark }: { opt: Opt; active: boolean; onPre
     <Pressable
       onPress={onPress}
       className={'w-full flex-row items-center border-2 ' +
-        (active ? 'border-sage bg-sage/5' : 'border-line dark:border-line-d bg-card dark:bg-card-d')}
+        (active ? 'border-sage bg-sage/10' : 'border-transparent bg-card dark:bg-card-d')}
       style={({ pressed }) => ({
-        borderRadius: 18,
-        paddingVertical: 14,
-        paddingHorizontal: 14,
+        borderRadius: 20,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
         transform: [{ scale: pressed ? 0.99 : 1 }],
-        shadowColor: '#3c2d14',
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 2,
+        // soft, floating shadow (no hard outline on unselected)
+        shadowColor: '#1A1A1A',
+        shadowOpacity: dark ? 0.4 : 0.09,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 3,
       })}>
       {/* icon tile */}
       <View
         style={{
-          width: 54, height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-          backgroundColor: active ? (dark ? '#23332a' : '#E3EDE5') : dark ? '#23262b' : '#F1EEE7',
+          width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+          backgroundColor: active ? (dark ? '#23332a' : '#E3EDE5') : dark ? '#23262b' : '#F2EFE8',
         }}>
-        <Text style={{ fontSize: 26 }}>{opt.icon}</Text>
+        <Text style={{ fontSize: 27 }}>{opt.icon}</Text>
       </View>
       {/* text */}
       <View style={{ flex: 1, marginLeft: 14, marginRight: 8 }}>
-        <Text className="text-ink dark:text-ink-d" style={{ fontSize: 17.5, fontWeight: '700' }}>{opt.label}</Text>
+        <Text className="text-ink dark:text-ink-d" style={{ fontSize: 18, fontWeight: '700' }}>{opt.label}</Text>
         <Text className="text-sub dark:text-sub-d" style={{ fontSize: 13.5, marginTop: 2, lineHeight: 18 }} numberOfLines={2}>{opt.desc}</Text>
       </View>
       {/* tick (only when selected) */}
