@@ -1,5 +1,6 @@
-// Confirm Sheet — review OCR'd moves, resolve flagged ones (ambiguous / illegal), then review.
-// Cascade-aware in spirit: flagged moves get a top suggestion to accept. Mock flags for now.
+// Confirm Sheet — review the recognized game (validated by chess.js). Uncertain OCR = amber,
+// illegal = red with legal suggestions (cascade-aware: only the first illegal is real). Once
+// no unresolved illegal moves remain, start the review.
 
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
@@ -13,49 +14,80 @@ import { SettingsButton } from '@/components/ui/SettingsButton';
 import { Board } from '@/components/Board';
 import { Icon } from '@/components/Icon';
 import { useApp } from '@/lib/AppContext';
-import { GAME_PLIES, GAME_POSITIONS } from '@/lib/mockData';
+import { computeLinePositions, fenToPos } from '@/lib/board';
+import { STD_FEN } from '@/constants/chess';
+import { GAME_PLIES } from '@/lib/mockData';
+import { getScan } from '@/lib/scanStore';
 import { C } from '@/constants/colors';
+import type { MoveCell } from '@/lib/validation';
+import type { Ply } from '@/types/chess';
 
-type Flag = { type: 'ambiguous' | 'illegal'; suggest: string };
-const FLAGS: Record<number, Flag> = {
-  3: { type: 'ambiguous', suggest: 'Nf6' },
-  7: { type: 'illegal', suggest: 'Bc5' },
-};
+// When opened without a scan (e.g. deep link), build a demo from the mock game.
+function fallbackCells(plies: Ply[]): MoveCell[] {
+  const cells: MoveCell[] = [];
+  let n = 1;
+  let side: 'w' | 'b' = 'w';
+  for (const p of plies) {
+    const uncertain = (n === 2 && side === 'w') || (n === 4 && side === 'b');
+    cells.push({ moveNumber: n, side, san: p.san, flag: uncertain ? 'uncertain' : 'ok' });
+    if (side === 'w') side = 'b';
+    else { side = 'w'; n += 1; }
+  }
+  return cells;
+}
 
-interface RowData { n: number; wIdx: number; bIdx: number }
+interface ICell extends MoveCell { idx: number }
+interface Row { n: number; w?: ICell; b?: ICell }
 
 export default function ConfirmSheet() {
-  const { dark, t } = useApp();
+  const { dark } = useApp();
   const insets = useSafeAreaInsets();
-  const [cursor, setCursor] = useState(2);
-  const [resolved, setResolved] = useState<Set<number>>(() => new Set());
-  const [popup, setPopup] = useState<number | null>(null);
 
-  const rows = useMemo<RowData[]>(() => {
-    const out: RowData[] = [];
-    for (let i = 0; i < GAME_PLIES.length; i += 2) out.push({ n: i / 2 + 1, wIdx: i, bIdx: i + 1 });
-    return out;
+  const { plies, cells } = useMemo(() => {
+    const s = getScan();
+    const p = s?.mode === 'sheet' && s.plies?.length ? s.plies : GAME_PLIES;
+    const c = s?.mode === 'sheet' && s.cells?.length ? s.cells : fallbackCells(p);
+    return { plies: p, cells: c };
   }, []);
 
-  const unresolved = Object.keys(FLAGS).map(Number).filter((k) => !resolved.has(k));
-  const popupFlag = popup != null ? FLAGS[popup] : null;
+  const positions = useMemo(() => computeLinePositions(fenToPos(STD_FEN), plies), [plies]);
+  const rows = useMemo<Row[]>(() => {
+    const map = new Map<number, Row>();
+    cells.forEach((c, idx) => {
+      const row = map.get(c.moveNumber) ?? { n: c.moveNumber };
+      row[c.side] = { ...c, idx };
+      map.set(c.moveNumber, row);
+    });
+    return [...map.values()];
+  }, [cells]);
 
-  function Cell({ idx }: { idx: number }) {
-    const ply = GAME_PLIES[idx];
-    if (!ply) return <View className="flex-1 min-h-[40px]" />;
-    const flag = FLAGS[idx];
-    const bad = flag && !resolved.has(idx);
-    const active = cursor === idx;
+  const [cursor, setCursor] = useState(() => Math.max(0, plies.length - 1));
+  const [resolved, setResolved] = useState<Set<number>>(() => new Set());
+  const [popupIdx, setPopupIdx] = useState<number | null>(null);
+
+  const needsAttention = cells.filter((c, i) => c.flag !== 'ok' && !resolved.has(i));
+  const hasIllegal = cells.some((c, i) => c.flag === 'invalid' && !resolved.has(i));
+  const popupCell = popupIdx != null ? cells[popupIdx] : null;
+  const cursorPly = plies[Math.min(cursor, plies.length - 1)];
+
+  function Cell({ cell }: { cell?: ICell }) {
+    if (!cell) return <View className="flex-1 min-h-[40px]" />;
+    const bad = cell.flag !== 'ok' && !resolved.has(cell.idx);
+    const illegal = cell.flag === 'invalid' && !resolved.has(cell.idx);
+    const legal = cell.idx < plies.length;
+    const active = legal && cursor === cell.idx;
     return (
       <Pressable
-        onPress={() => { setCursor(idx); setPopup(bad ? idx : null); }}
+        onPress={() => {
+          if (illegal) setPopupIdx(cell.idx);
+          else if (legal) { setCursor(cell.idx); setPopupIdx(null); }
+        }}
         className={'flex-1 min-h-[40px] pl-3 pr-2 rounded-lg flex-row items-center ' +
           (active ? 'bg-sage/15' : bad ? 'bg-amber/10' : '')}>
-        <Text className={'text-[16px] font-medium ' +
-          (active ? 'text-sage' : 'text-ink dark:text-ink-d') +
-          (bad && flag.type === 'illegal' ? ' underline' : '')}
+        <Text
+          className={'text-[16px] font-medium ' + (active ? 'text-sage' : 'text-ink dark:text-ink-d') + (illegal ? ' underline' : '')}
           style={{ fontVariant: ['tabular-nums'] }}>
-          {ply.san}
+          {cell.san}
         </Text>
         {bad && <View className="ml-auto w-2 h-2 rounded-full bg-amber" />}
       </Pressable>
@@ -74,17 +106,17 @@ export default function ConfirmSheet() {
       <View className="flex-row items-center gap-4 px-6 pt-1 pb-3">
         <View className="rounded-[8px] overflow-hidden border border-line dark:border-line-d">
           <Board
-            position={GAME_POSITIONS[cursor + 1]} size={156} dark={dark}
-            arrows={[{ from: GAME_PLIES[cursor].from, to: GAME_PLIES[cursor].to, width: 6 }]}
+            position={positions[Math.min(cursor + 1, positions.length - 1)]} size={156} dark={dark}
+            arrows={cursorPly ? [{ from: cursorPly.from, to: cursorPly.to, width: 6 }] : null}
           />
         </View>
         <View className="flex-1">
-          <Text className="text-[16px] font-semibold text-ink dark:text-ink-d">{GAME_PLIES[cursor].name}</Text>
-          {unresolved.length > 0 ? (
+          <Text className="text-[16px] font-semibold text-ink dark:text-ink-d">{cursorPly?.name ?? cursorPly?.san ?? '—'}</Text>
+          {needsAttention.length > 0 ? (
             <View className="mt-1.5 flex-row items-start gap-1.5">
               <View className="w-2 h-2 rounded-full bg-amber mt-1.5" />
               <Text className="text-[13px] text-amber font-medium flex-1">
-                {unresolved.length} move{unresolved.length > 1 ? 's' : ''} need your attention.
+                {needsAttention.length} move{needsAttention.length > 1 ? 's' : ''} need your attention.
               </Text>
             </View>
           ) : (
@@ -107,8 +139,8 @@ export default function ConfirmSheet() {
           {rows.map((r, i) => (
             <View key={r.n} className={'flex-row items-center px-2 py-1 ' + (i ? 'border-t border-[#F0EBE0] dark:border-[#23262b]' : '')}>
               <Text className="w-[28px] text-center text-[14px] text-sub dark:text-sub-d" style={{ fontVariant: ['tabular-nums'] }}>{r.n}</Text>
-              <Cell idx={r.wIdx} />
-              <Cell idx={r.bIdx} />
+              <Cell cell={r.w} />
+              <Cell cell={r.b} />
             </View>
           ))}
         </View>
@@ -116,29 +148,35 @@ export default function ConfirmSheet() {
       </ScrollView>
 
       <View className="px-6 border-t border-line dark:border-line-d" style={{ paddingTop: 12, paddingBottom: insets.bottom + 10 }}>
-        <PrimaryButton onPress={() => router.push({ pathname: '/review', params: { mode: 'sheet' } })} icon="play">Start review</PrimaryButton>
+        <PrimaryButton
+          onPress={() => router.push({ pathname: '/review', params: { mode: 'sheet' } })}
+          icon="play"
+          className={hasIllegal ? 'opacity-40' : ''}>
+          Start review
+        </PrimaryButton>
       </View>
 
       {/* suggestion popup */}
-      <Modal visible={popup != null && !!popupFlag} transparent animationType="fade" onRequestClose={() => setPopup(null)}>
-        <Pressable className="flex-1 items-center justify-center px-10" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }} onPress={() => setPopup(null)}>
+      <Modal visible={popupIdx != null && !!popupCell} transparent animationType="fade" onRequestClose={() => setPopupIdx(null)}>
+        <Pressable className="flex-1 items-center justify-center px-10" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }} onPress={() => setPopupIdx(null)}>
           <Pressable onPress={() => {}} className="w-full rounded-2xl bg-card dark:bg-card-d border border-line dark:border-line-d p-4">
             <View className="flex-row items-center gap-1.5 mb-1.5">
               <Icon name="alertCircle" size={14} color={C.amber} />
-              <Text className="text-[12px] font-semibold text-amber">
-                {popupFlag?.type === 'illegal' ? "Doesn't fit the position" : 'Hard to read'}
-              </Text>
+              <Text className="text-[12px] font-semibold text-amber">Doesn’t fit the position</Text>
             </View>
             <Text className="text-[14px] text-ink dark:text-ink-d leading-snug">
-              This looks like <Text className="font-semibold">{popupFlag?.suggest}</Text>. Tap to use it.
+              “{popupCell?.san}” isn’t legal here.{popupCell?.suggest?.length ? ' Did you mean:' : ''}
             </Text>
-            <View className="flex-row gap-2 mt-3">
-              <Pressable
-                onPress={() => { if (popup != null) setResolved((s) => new Set(s).add(popup)); setPopup(null); }}
-                className="flex-1 h-10 rounded-lg bg-sage items-center justify-center">
-                <Text className="text-white text-[13px] font-semibold">Accept {popupFlag?.suggest}</Text>
-              </Pressable>
-              <Pressable onPress={() => setPopup(null)} className="flex-1 h-10 rounded-lg border border-line dark:border-line-d items-center justify-center">
+            <View className="flex-row flex-wrap gap-2 mt-3">
+              {(popupCell?.suggest ?? []).map((s) => (
+                <Pressable
+                  key={s}
+                  onPress={() => { if (popupIdx != null) setResolved((r) => new Set(r).add(popupIdx)); setPopupIdx(null); }}
+                  className="h-10 px-4 rounded-lg bg-sage items-center justify-center">
+                  <Text className="text-white text-[13px] font-semibold">{s}</Text>
+                </Pressable>
+              ))}
+              <Pressable onPress={() => setPopupIdx(null)} className="h-10 px-4 rounded-lg border border-line dark:border-line-d items-center justify-center">
                 <Text className="text-ink dark:text-ink-d text-[13px] font-medium">Edit manually</Text>
               </Pressable>
             </View>

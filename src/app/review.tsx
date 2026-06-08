@@ -14,10 +14,11 @@ import { EvalBar } from '@/components/EvalBar';
 import { Icon, type IconName } from '@/components/Icon';
 import { SaveGameDialog, type SaveForm } from '@/components/SaveGameDialog';
 import { useApp } from '@/lib/AppContext';
-import { computeLinePositions, fmtCp } from '@/lib/board';
-import { buildLines, startPosFor, GAME_PLIES } from '@/lib/mockData';
+import { computeLinePositions, fmtCp, fenToPos } from '@/lib/board';
+import { buildLines, GAME_PLIES } from '@/lib/mockData';
 import { sharePGN, copyText } from '@/lib/share';
 import { useEngine } from '@/lib/engine/EngineProvider';
+import { getScan } from '@/lib/scanStore';
 import { STD_FEN, SCAN_FEN, STARTING_FEN } from '@/constants/chess';
 import { C, ink, sub } from '@/constants/colors';
 import type { MultiPVLine, Ply, ReviewMode } from '@/types/chess';
@@ -87,29 +88,39 @@ const BOARD = 300;
 
 export default function Review() {
   const { t, dark, toast, profile } = useApp();
-  const params = useLocalSearchParams<{ mode?: string; title?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; title?: string; fen?: string }>();
   const mode: ReviewMode = params.mode === 'sheet' ? 'sheet' : 'position';
   const isSheet = mode === 'sheet';
   const insets = useSafeAreaInsets();
-
-  const startPos = useMemo(() => startPosFor(mode), [mode]);
   const { analyze } = useEngine();
 
-  // Lines start as the mock (instant), then get replaced by real engine output.
-  const [lines, setLines] = useState<MultiPVLine[]>(() => buildLines(mode));
+  // Use the real scan when present (FEN for a position, recognized game for a sheet).
+  const scan = useMemo(() => getScan(), []);
+  const posFen = params.fen || (scan?.mode === 'position' ? scan.fen : undefined) || `${SCAN_FEN} w - - 0 1`;
+  const sheetPlies: Ply[] = (scan?.mode === 'sheet' && scan.plies?.length) ? scan.plies : GAME_PLIES;
+
+  const startPos = useMemo(() => (isSheet ? fenToPos(STD_FEN) : fenToPos(posFen)), [isSheet, posFen]);
+
+  function initialLines(): MultiPVLine[] {
+    if (!isSheet) return buildLines('position');
+    const base = buildLines('sheet');
+    return [{ evalCp: 0, badge: 'yourgame', plies: sheetPlies }, ...base.slice(1)];
+  }
+
+  const [lines, setLines] = useState<MultiPVLine[]>(initialLines);
   const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLines(buildLines(mode));
+    setLines(initialLines());
     setAnalyzing(true);
     (async () => {
       try {
-        const fen = isSheet ? STARTING_FEN : `${SCAN_FEN} w - - 0 1`;
+        const fen = isSheet ? STARTING_FEN : posFen;
         const res = await analyze(fen, { multipv: 3, depth: 16 });
         if (cancelled || !res.lines.length) return;
         if (isSheet) {
-          setLines([{ evalCp: 0, badge: 'yourgame', plies: GAME_PLIES }, ...res.lines.slice(0, 2)]);
+          setLines([{ evalCp: 0, badge: 'yourgame', plies: sheetPlies }, ...res.lines.slice(0, 2)]);
         } else {
           setLines(res.lines.slice(0, 3).map((l, i) => (i === 0 ? { ...l, badge: 'best' } : l)));
         }
@@ -121,7 +132,7 @@ export default function Review() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, posFen]);
 
   const [sel, setSel] = useState(0);
   const [ply, setPly] = useState(0);
@@ -140,7 +151,7 @@ export default function Review() {
   const boardPos = positions[safePly];
 
   const boardCp = line.badge === 'yourgame'
-    ? (safePly > 0 ? GAME_PLIES[safePly - 1].evalCp ?? 0 : 15)
+    ? (safePly > 0 ? line.plies[safePly - 1]?.evalCp ?? 0 : 15)
     : line.evalCp;
 
   const arrowMove = safePly > 0 ? plies[safePly - 1] : plies[0];
@@ -162,7 +173,7 @@ export default function Review() {
       id: 'tmp', type: (isSheet ? 'S' : 'P') as 'S' | 'P', title,
       event: form?.event, site: form?.site, date: form?.date, round: form?.round,
       white: form?.white, black: form?.black, result: form?.result,
-      plies: isSheet ? GAME_PLIES : [], startFen: isSheet ? STD_FEN : SCAN_FEN,
+      plies: isSheet ? sheetPlies : [], startFen: isSheet ? STD_FEN : posFen,
     };
   }
 
@@ -177,7 +188,7 @@ export default function Review() {
     toast(ok ? 'Exported as PGN.' : 'Could not export.');
   }
   async function share() {
-    await copyText(isSheet ? title : SCAN_FEN);
+    await copyText(isSheet ? title : posFen);
     toast(isSheet ? 'Link copied to share.' : 'FEN copied to share.');
   }
 

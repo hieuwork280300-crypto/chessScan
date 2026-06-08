@@ -2,7 +2,7 @@
 // Recognition is mocked until a Gemini key is wired (see lib/recognition.ts).
 
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,6 +11,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Icon } from '@/components/Icon';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { recognizePosition, recognizeScoreSheet } from '@/lib/recognition';
+import { validateSheet } from '@/lib/validation';
+import { setScan } from '@/lib/scanStore';
 import { C } from '@/constants/colors';
 
 function CornerFrame() {
@@ -38,8 +40,20 @@ export default function Camera() {
   async function recognizeAndGo(uri?: string) {
     setBusy(true);
     try {
-      if (isSheet) { await recognizeScoreSheet(uri); router.replace('/confirm-sheet'); }
-      else { await recognizePosition(uri); router.replace('/confirm-position'); }
+      if (isSheet) {
+        const r = await recognizeScoreSheet(uri);
+        const v = validateSheet(r.moves, r.uncertain, r.result);
+        setScan({ mode: 'sheet', imageUri: uri, plies: v.plies, cells: v.cells, firstError: v.firstError, result: r.result, mock: r.mock, confidence: r.confidence });
+        router.replace('/confirm-sheet');
+      } else {
+        const r = await recognizePosition(uri);
+        setScan({ mode: 'position', imageUri: uri, fen: r.fen, confidence: r.confidence, mock: r.mock });
+        router.replace('/confirm-position');
+      }
+    } catch {
+      Alert.alert('Could not read the image', 'Please try again with a clearer photo, or enter it manually.', [
+        { text: 'OK' },
+      ]);
     } finally {
       setBusy(false);
     }

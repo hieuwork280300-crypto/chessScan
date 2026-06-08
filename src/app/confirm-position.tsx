@@ -15,10 +15,16 @@ import { Segmented } from '@/components/ui/Segmented';
 import { Board } from '@/components/Board';
 import { Icon } from '@/components/Icon';
 import { useApp } from '@/lib/AppContext';
-import { fenToPos } from '@/lib/board';
+import { fenToPos, posToFen } from '@/lib/board';
 import { SCAN_FEN, GLYPH } from '@/constants/chess';
 import { C } from '@/constants/colors';
+import { getScan, patchScan } from '@/lib/scanStore';
 import type { Position, Square } from '@/types/chess';
+
+function initialFen(): string {
+  const s = getScan();
+  return s?.mode === 'position' && s.fen ? s.fen : `${SCAN_FEN} w - - 0 1`;
+}
 
 const PALETTE = ['wP', 'wN', 'wB', 'wR', 'wQ', 'wK', 'bP', 'bN', 'bB', 'bR', 'bQ', 'bK'] as const;
 type Brush = (typeof PALETTE)[number] | 'erase';
@@ -40,8 +46,8 @@ function Glyph({ piece, size }: { piece: string; size: number }) {
 export default function ConfirmPosition() {
   const { dark } = useApp();
   const insets = useSafeAreaInsets();
-  const [pos, setPos] = useState<Position>(() => fenToPos(SCAN_FEN));
-  const [turn, setTurn] = useState<'w' | 'b'>('w');
+  const [pos, setPos] = useState<Position>(() => fenToPos(initialFen()));
+  const [turn, setTurn] = useState<'w' | 'b'>(() => (initialFen().split(' ')[1] === 'b' ? 'b' : 'w'));
   const [sel, setSel] = useState<Square | null>(null);
   const [brush, setBrush] = useState<Brush | null>(null);
 
@@ -71,8 +77,9 @@ export default function ConfirmPosition() {
   }
 
   function analyze() {
-    // FEN (posToFen(pos, turn)) will feed the engine once wired; mock review for now.
-    router.push({ pathname: '/review', params: { mode: 'position' } });
+    const fen = posToFen(pos, turn);
+    patchScan({ mode: 'position', fen });
+    router.push({ pathname: '/review', params: { mode: 'position', fen } });
   }
 
   return (
