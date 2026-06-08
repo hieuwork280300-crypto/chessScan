@@ -38,14 +38,19 @@ function Option({ label, active, onPress, disabled }: { label: string; active: b
     <Pressable
       disabled={disabled}
       onPress={onPress}
-      className={'flex-row items-center px-5 rounded-2xl border ' +
+      className={'flex-row items-center px-5 border ' +
         (active ? 'bg-sage border-sage' : 'bg-card dark:bg-card-d border-line dark:border-line-d')}
-      style={({ pressed }) => [
-        { minHeight: 62, transform: [{ scale: pressed ? 0.975 : 1 }] },
-        active
-          ? { shadowColor: C.sage, shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 4 }
-          : { shadowColor: '#3c2d14', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
-      ]}>
+      style={({ pressed }) => ({
+        minHeight: 62,
+        borderRadius: 16,
+        transform: [{ scale: pressed ? 0.985 : 1 }],
+        // identical, subtle shadow in both states so shape stays consistent
+        shadowColor: '#3c2d14',
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
+      })}>
       <Text className={'flex-1 font-semibold ' + (active ? 'text-white' : 'text-ink dark:text-ink-d')} style={{ fontSize: 17 }}>
         {label}
       </Text>
