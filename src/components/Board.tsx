@@ -86,10 +86,10 @@ export function Board({
                   <Text
                     style={{
                       position: 'absolute', width: s, height: s, textAlign: 'center',
-                      lineHeight: s, fontSize: s * 0.78,
-                      color: piece[0] === 'w' ? '#F6F1E7' : '#2A2620',
-                      textShadowColor: piece[0] === 'w' ? 'rgba(0,0,0,.45)' : 'rgba(255,255,255,.18)',
-                      textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 1,
+                      lineHeight: s, fontSize: s * 0.68,
+                      color: piece[0] === 'w' ? '#FBF7EE' : '#262521',
+                      textShadowColor: piece[0] === 'w' ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.15)',
+                      textShadowOffset: { width: 0, height: 0.5 }, textShadowRadius: 0.8,
                     }}>
                     {GLYPH[piece[1]]}
                   </Text>

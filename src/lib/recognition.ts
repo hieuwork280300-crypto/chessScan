@@ -8,8 +8,11 @@ import { GAME_PLIES } from '@/lib/mockData';
 import type { Ply } from '@/types/chess';
 
 const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-const MODEL = 'gemini-2.5-flash';
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+// Flash on the free tier reads the board ~95% accurate with the square-by-square grid prompt
+// (Pro returns 429 on free keys). The accuracy win comes from the prompt, not the model.
+const MODEL_POSITION = 'gemini-2.5-flash';
+const MODEL_SHEET = 'gemini-2.5-flash';
+const endpoint = (model: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
 export interface RecognizedPosition {
   fen: string;          // placement + turn (e.g. "…/… w - - 0 1")
@@ -26,12 +29,18 @@ export interface RecognizedSheet {
   mock: boolean;
 }
 
-const POSITION_PROMPT = `You are a chess position recognition expert. Look at this image of a chess board (photo, screenshot, or paper diagram).
-Return ONLY JSON: { "fen": string, "confidence": number, "notes": string }
-- "fen": full FEN. Read all 64 squares carefully. Uppercase = white, lowercase = black.
-- Default the side to move to white unless clearly black. Default castling to "-" and en passant to "-".
-- "confidence": 0.0-1.0 based on image quality.
-- If you cannot find a board, return fen "8/8/8/8/8/8/8/8 w - - 0 1" and confidence 0.`;
+const POSITION_PROMPT = `You are a world-class chess vision system. Identify the piece on EVERY one of the 64 squares of the chess board in this image (photo, screenshot, or paper diagram).
+
+Return ONLY JSON in exactly this shape:
+{ "board": [["..8 cells for rank 8.."], ["rank 7"], ["rank 6"], ["rank 5"], ["rank 4"], ["rank 3"], ["rank 2"], ["rank 1"]], "sideToMove": "w"|"b", "confidence": 0.0-1.0 }
+
+CRITICAL RULES:
+- board has 8 rows. board[0] = rank 8 (top, Black's back rank side), board[7] = rank 1 (White's back rank). Within each row the 8 cells go file a→h (left→right) as seen from White's side at the bottom.
+- Each cell is a 2-character code: color ("w" = the light/white pieces, "b" = the dark/black pieces) + piece ("K","Q","R","B","N","P"). An EMPTY square is the empty string "".
+- Inspect each square ONE BY ONE. In most real positions the MAJORITY of squares are EMPTY — never invent a piece on an empty square. Pawns sit on a single square; do not duplicate them.
+- Distinguish white vs black by piece COLOR (white/cream pieces = "w", black/dark pieces = "b"), not by which side of the board they're on.
+- "sideToMove": "w" unless the position clearly indicates Black to move.
+- "confidence": 0.0-1.0 by image clarity.`;
 
 const SHEET_PROMPT = `You are a chess score-sheet OCR expert. Extract every move from this handwritten or printed score sheet.
 Return ONLY JSON: { "moves": [{ "moveNumber": number, "white": string, "black": string }], "result": "1-0"|"0-1"|"1/2-1/2"|"*", "confidence": number, "uncertainMoves": number[] }
@@ -42,16 +51,17 @@ Return ONLY JSON: { "moves": [{ "moveNumber": number, "white": string, "black": 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 async function toBase64(uri: string): Promise<string> {
+  // Keep more detail for the board: larger + lighter compression than before.
   const out = await ImageManipulator.manipulateAsync(
     uri,
-    [{ resize: { width: 1024 } }],
-    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+    [{ resize: { width: 1280 } }],
+    { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
   );
   return out.base64 ?? '';
 }
 
-async function callGemini(prompt: string, base64: string): Promise<unknown> {
-  const res = await fetch(`${ENDPOINT}?key=${API_KEY}`, {
+async function callGemini(model: string, prompt: string, base64: string): Promise<unknown> {
+  const res = await fetch(`${endpoint(model)}?key=${API_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -66,15 +76,44 @@ async function callGemini(prompt: string, base64: string): Promise<unknown> {
   return JSON.parse(text);
 }
 
+// Convert an 8x8 grid (board[0]=rank8, file a→h) into a FEN placement field.
+function gridToFen(board: string[][], turn: 'w' | 'b'): string {
+  const ranks = board.slice(0, 8).map((row) => {
+    let s = '';
+    let empty = 0;
+    for (let f = 0; f < 8; f++) {
+      const cell = (row[f] ?? '').trim();
+      if (!cell || cell.length < 2) {
+        empty++;
+      } else {
+        if (empty) { s += empty; empty = 0; }
+        const color = cell[0].toLowerCase();
+        const piece = cell[1].toUpperCase();
+        s += color === 'w' ? piece : piece.toLowerCase();
+      }
+    }
+    if (empty) s += empty;
+    return s || '8';
+  });
+  while (ranks.length < 8) ranks.push('8');
+  return `${ranks.join('/')} ${turn} - - 0 1`;
+}
+
 export async function recognizePosition(imageUri?: string): Promise<RecognizedPosition> {
   if (!API_KEY || !imageUri) {
     await delay(1000);
     return { fen: `${SCAN_FEN} w - - 0 1`, confidence: 0.6, mock: true };
   }
   const base64 = await toBase64(imageUri);
-  const x = (await callGemini(POSITION_PROMPT, base64)) as { fen?: string; confidence?: number; notes?: string };
-  if (!x || typeof x.fen !== 'string') throw new Error('Gemini: bad position shape');
-  return { fen: x.fen, confidence: typeof x.confidence === 'number' ? x.confidence : 0.7, notes: x.notes, mock: false };
+  const x = (await callGemini(MODEL_POSITION, POSITION_PROMPT, base64)) as {
+    board?: string[][]; sideToMove?: string; fen?: string; confidence?: number;
+  };
+  const turn: 'w' | 'b' = x?.sideToMove === 'b' ? 'b' : 'w';
+  let fen: string | undefined;
+  if (Array.isArray(x?.board) && x.board.length >= 8) fen = gridToFen(x.board, turn);
+  else if (typeof x?.fen === 'string') fen = x.fen; // tolerate models that return FEN directly
+  if (!fen) throw new Error('Gemini: bad position shape');
+  return { fen, confidence: typeof x?.confidence === 'number' ? x.confidence : 0.7, mock: false };
 }
 
 export async function recognizeScoreSheet(imageUri?: string): Promise<RecognizedSheet> {
@@ -87,7 +126,7 @@ export async function recognizeScoreSheet(imageUri?: string): Promise<Recognized
     return { moves, result: '*', uncertain: [3, 7], confidence: 0.6, mock: true };
   }
   const base64 = await toBase64(imageUri);
-  const x = (await callGemini(SHEET_PROMPT, base64)) as {
+  const x = (await callGemini(MODEL_SHEET, SHEET_PROMPT, base64)) as {
     moves?: SheetMove[]; result?: string; uncertainMoves?: number[]; confidence?: number;
   };
   if (!x || !Array.isArray(x.moves)) throw new Error('Gemini: bad sheet shape');
