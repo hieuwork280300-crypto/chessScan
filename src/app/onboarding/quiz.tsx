@@ -67,37 +67,36 @@ function Card({ opt, active, onPress, dark }: { opt: Opt; active: boolean; onPre
   return (
     <Pressable
       onPress={onPress}
-      className={'w-full flex-row items-center border-2 ' +
-        (active ? 'border-sage bg-sage/10' : 'border-transparent bg-card dark:bg-card-d')}
+      className={'w-full flex-row items-center ' +
+        (active ? 'border-2 border-sage bg-sage/10' : 'border border-line dark:border-line-d bg-card dark:bg-card-d')}
       style={({ pressed }) => ({
-        borderRadius: 20,
+        borderRadius: 18,
         paddingVertical: 16,
         paddingHorizontal: 16,
         transform: [{ scale: pressed ? 0.99 : 1 }],
-        // soft, floating shadow (no hard outline on unselected)
-        shadowColor: '#1A1A1A',
-        shadowOpacity: dark ? 0.4 : 0.09,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 6 },
-        elevation: 3,
+        shadowColor: '#000',
+        shadowOpacity: dark ? 0.35 : 0.05,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 2,
       })}>
       {/* icon tile */}
       <View
         style={{
-          width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
-          backgroundColor: active ? (dark ? '#23332a' : '#E3EDE5') : dark ? '#23262b' : '#F2EFE8',
+          width: 58, height: 58, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+          backgroundColor: active ? (dark ? '#23332a' : '#E3EDE5') : dark ? '#23262b' : '#F4F1EA',
         }}>
-        <Text style={{ fontSize: 27 }}>{opt.icon}</Text>
+        <Text style={{ fontSize: 30 }}>{opt.icon}</Text>
       </View>
-      {/* text */}
-      <View style={{ flex: 1, marginLeft: 14, marginRight: 8 }}>
-        <Text className="text-ink dark:text-ink-d" style={{ fontSize: 18, fontWeight: '700' }}>{opt.label}</Text>
-        <Text className="text-sub dark:text-sub-d" style={{ fontSize: 13.5, marginTop: 2, lineHeight: 18 }} numberOfLines={2}>{opt.desc}</Text>
+      {/* text — title and subtitle with clear spacing */}
+      <View style={{ flex: 1, marginLeft: 16, marginRight: 8 }}>
+        <Text className="text-ink dark:text-ink-d" style={{ fontSize: 20, lineHeight: 23, fontWeight: '800' }}>{opt.label}</Text>
+        <Text className="text-sub dark:text-sub-d" style={{ fontSize: 15, lineHeight: 20, marginTop: 6 }} numberOfLines={2}>{opt.desc}</Text>
       </View>
-      {/* tick (only when selected) */}
+      {/* check (only when selected) */}
       {active && (
-        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: C.sage, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="check" size={16} strokeWidth={3} color={C.white} />
+        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: C.sage, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="check" size={18} strokeWidth={3} color={C.white} />
         </View>
       )}
     </Pressable>
@@ -156,8 +155,8 @@ export default function Quiz() {
             <View className="w-16 h-16 rounded-full bg-sage/10 items-center justify-center">
               <Text style={{ fontSize: 32 }}>{q.emoji}</Text>
             </View>
-            <Text className="mt-4 text-center text-ink dark:text-ink-d" style={{ fontSize: 25, lineHeight: 31, fontWeight: '800' }}>{q.title}</Text>
-            <Text className="mt-2 text-center text-sub dark:text-sub-d" style={{ fontSize: 15, lineHeight: 20 }}>{q.subtitle}</Text>
+            <Text className="mt-4 text-center text-ink dark:text-ink-d" style={{ fontSize: 28, lineHeight: 34, fontWeight: '800' }}>{q.title}</Text>
+            <Text className="mt-2.5 text-center text-sub dark:text-sub-d" style={{ fontSize: 16, lineHeight: 22 }}>{q.subtitle}</Text>
           </View>
 
           <View className="mt-7" style={{ gap: 14 }}>
