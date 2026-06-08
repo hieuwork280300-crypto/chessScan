@@ -38,26 +38,30 @@ function Option({ label, active, onPress, disabled }: { label: string; active: b
     <Pressable
       disabled={disabled}
       onPress={onPress}
-      className={'flex-row items-center px-5 border ' +
+      className={'flex-row items-center border ' +
         (active ? 'bg-sage border-sage' : 'bg-card dark:bg-card-d border-line dark:border-line-d')}
       style={({ pressed }) => ({
-        minHeight: 62,
-        borderRadius: 16,
+        minHeight: 74,
+        paddingHorizontal: 22,
+        paddingVertical: 14,
+        borderRadius: 20,
         transform: [{ scale: pressed ? 0.985 : 1 }],
-        // identical, subtle shadow in both states so shape stays consistent
+        // identical, soft shadow in both states so shape stays consistent
         shadowColor: '#3c2d14',
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.07,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 3 },
         elevation: 2,
       })}>
-      <Text className={'flex-1 font-semibold ' + (active ? 'text-white' : 'text-ink dark:text-ink-d')} style={{ fontSize: 17 }}>
+      <Text className={'flex-1 font-semibold ' + (active ? 'text-white' : 'text-ink dark:text-ink-d')} style={{ fontSize: 18 }}>
         {label}
       </Text>
-      {active && (
-        <View className="w-7 h-7 rounded-full bg-white items-center justify-center">
+      {active ? (
+        <View className="w-7 h-7 rounded-full bg-white items-center justify-center ml-3">
           <Icon name="check" size={16} strokeWidth={2.5} color={C.sage} />
         </View>
+      ) : (
+        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#D8CFC0', marginLeft: 12 }} />
       )}
     </Pressable>
   );
@@ -121,7 +125,7 @@ export default function Quiz() {
         <Text className="mt-2 text-sub dark:text-sub-d" style={{ fontSize: 13 }}>Step {step + 1} of {QUESTIONS.length}</Text>
       </View>
 
-      <Animated.View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 40, opacity: anim, transform: [{ translateX }] }}>
+      <Animated.View style={{ flex: 1, paddingHorizontal: 28, justifyContent: 'center', paddingBottom: 70, opacity: anim, transform: [{ translateX }] }}>
         <View className="items-center">
           <View className="w-16 h-16 rounded-full bg-sage/10 items-center justify-center">
             <Text style={{ fontSize: 34 }}>{q.emoji}</Text>
