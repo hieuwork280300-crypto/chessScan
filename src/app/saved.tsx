@@ -1,7 +1,8 @@
-// Saved Games — library grid. Mock data for now (real persistence wired later).
+// Saved Games — library grid backed by AsyncStorage. Tap to open, long-press to delete.
 
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 
 import { Screen } from '@/components/ui/Screen';
 import { IconButton } from '@/components/ui/IconButton';
@@ -9,14 +10,18 @@ import { Board } from '@/components/Board';
 import { Icon } from '@/components/Icon';
 import { useApp } from '@/lib/AppContext';
 import { C } from '@/constants/colors';
-import { SAVED_GAMES, savedBoard } from '@/lib/mockData';
+import { boardForGame, deleteGame, loadGames, openGame } from '@/lib/games';
 import type { SavedGame } from '@/types/chess';
 
-function GameCard({ game }: { game: SavedGame }) {
-  const b = savedBoard(game);
+function GameCard({ game, onDelete }: { game: SavedGame; onDelete: () => void }) {
+  const b = boardForGame(game);
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/review', params: { mode: game.type === 'P' ? 'position' : 'sheet', title: game.title } })}
+      onPress={() => openGame(game)}
+      onLongPress={() => Alert.alert('Delete game?', game.title, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: onDelete },
+      ])}
       className="w-[47%] active:opacity-80">
       <View className="rounded-[12px] overflow-hidden border border-line dark:border-line-d relative">
         <Board position={b.pos} size={160} arrows={b.arrow ? [{ from: b.arrow[0], to: b.arrow[1], width: 4 }] : null} />
@@ -25,24 +30,47 @@ function GameCard({ game }: { game: SavedGame }) {
         </View>
       </View>
       <Text numberOfLines={1} className="mt-2 text-[13px] font-semibold text-ink dark:text-ink-d">{game.title}</Text>
-      <Text className="text-[11px] text-sub dark:text-sub-d">{game.event} · {game.dateSavedLabel}</Text>
+      <Text className="text-[11px] text-sub dark:text-sub-d">{[game.event, game.dateSavedLabel].filter(Boolean).join(' · ')}</Text>
     </Pressable>
   );
 }
 
 export default function Saved() {
   const { t } = useApp();
+  const [games, setGames] = useState<SavedGame[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      loadGames().then((g) => { if (active) setGames(g); });
+      return () => { active = false; };
+    }, []),
+  );
+
+  async function remove(id: string) {
+    setGames(await deleteGame(id));
+  }
+
   return (
     <Screen>
       <View className="flex-row items-center px-3 pb-1">
         <IconButton name="chevronLeft" label="Back" onPress={() => router.back()} />
         <Text className="text-[20px] font-bold text-ink dark:text-ink-d ml-1">{t('home.savedGames')}</Text>
       </View>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-4 pb-10">
-        <View className="flex-row flex-wrap justify-between gap-y-5 mt-2">
-          {SAVED_GAMES.map((g) => <GameCard key={g.id} game={g} />)}
+      {games.length === 0 ? (
+        <View className="flex-1 items-center justify-center px-10">
+          <Icon name="bookmark" size={34} color={C.sub} />
+          <Text className="mt-3 text-[15px] text-sub dark:text-sub-d text-center">
+            No saved games yet. Scan a position or game, then tap Save to keep it here.
+          </Text>
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-4 pb-10">
+          <View className="flex-row flex-wrap justify-between gap-y-5 mt-2">
+            {games.map((g) => <GameCard key={g.id} game={g} onDelete={() => remove(g.id)} />)}
+          </View>
+        </ScrollView>
+      )}
     </Screen>
   );
 }

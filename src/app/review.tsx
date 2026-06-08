@@ -19,9 +19,11 @@ import { buildLines, GAME_PLIES } from '@/lib/mockData';
 import { sharePGN, copyText } from '@/lib/share';
 import { useEngine } from '@/lib/engine/EngineProvider';
 import { getScan } from '@/lib/scanStore';
+import { fenAtPly } from '@/lib/validation';
+import { addGame, newGameId, shortDate } from '@/lib/games';
 import { STD_FEN, SCAN_FEN, STARTING_FEN } from '@/constants/chess';
 import { C, ink, sub } from '@/constants/colors';
-import type { MultiPVLine, Ply, ReviewMode } from '@/types/chess';
+import type { MultiPVLine, Ply, ReviewMode, SavedGame } from '@/types/chess';
 
 function qualityClasses(q: string | undefined, active: boolean): string {
   if (active) return 'bg-sage';
@@ -150,8 +152,25 @@ export default function Review() {
   const safePly = Math.min(ply, plies.length);
   const boardPos = positions[safePly];
 
-  const boardCp = line.badge === 'yourgame'
-    ? (safePly > 0 ? line.plies[safePly - 1]?.evalCp ?? 0 : 15)
+  // Real per-move eval for the your-game line: analyze the displayed position lazily.
+  const isYourGame = line.badge === 'yourgame';
+  const [moveCp, setMoveCp] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isYourGame || analyzing || safePly === 0) { setMoveCp(null); return; }
+    let cancelled = false;
+    const fen = fenAtPly(plies, safePly);
+    const id = setTimeout(async () => {
+      try {
+        const res = await analyze(fen, { multipv: 1, depth: 12 });
+        if (!cancelled && res.lines[0]) setMoveCp(res.lines[0].evalCp ?? 0);
+      } catch { /* keep previous */ }
+    }, 350);
+    return () => { cancelled = true; clearTimeout(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isYourGame, analyzing, safePly, sel]);
+
+  const boardCp = isYourGame
+    ? (moveCp ?? (safePly > 0 ? line.plies[safePly - 1]?.evalCp ?? 0 : 15))
     : line.evalCp;
 
   const arrowMove = safePly > 0 ? plies[safePly - 1] : plies[0];
@@ -168,19 +187,22 @@ export default function Review() {
     if (x != null) stripRef.current?.scrollTo({ x: Math.max(0, x - 120), animated: true });
   }
 
-  function buildGame(form?: SaveForm | null) {
+  function buildGame(form?: SaveForm | null): SavedGame {
     return {
-      id: 'tmp', type: (isSheet ? 'S' : 'P') as 'S' | 'P', title,
-      event: form?.event, site: form?.site, date: form?.date, round: form?.round,
+      id: newGameId(), type: (isSheet ? 'S' : 'P') as 'S' | 'P', title: form?.title || title,
+      event: form?.event || (isSheet ? undefined : 'Position scan'),
+      site: form?.site, date: form?.date, round: form?.round,
       white: form?.white, black: form?.black, result: form?.result,
       plies: isSheet ? sheetPlies : [], startFen: isSheet ? STD_FEN : posFen,
     };
   }
 
-  function onSaveConfirm(form: SaveForm) {
+  async function onSaveConfirm(form: SaveForm) {
     setMeta(form);
     if (form.title) setTitle(form.title);
     setShowSave(false);
+    const savedAt = Date.now();
+    await addGame({ ...buildGame(form), savedAt, dateSavedLabel: shortDate(savedAt) });
     toast(t('save.saved'));
   }
   async function exportPgn() {

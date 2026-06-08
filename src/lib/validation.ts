@@ -31,6 +31,15 @@ function friendlyName(san: string, piece: string, to: string): string {
   return `${PIECE_NAME[piece] ?? 'Piece'} to ${to}`;
 }
 
+// FEN after replaying the first `n` plies of a game (for per-move engine eval).
+export function fenAtPly(plies: Ply[], n: number): string {
+  const chess = new Chess();
+  for (let i = 0; i < Math.min(n, plies.length); i++) {
+    try { chess.move(plies[i].san); } catch { break; }
+  }
+  return chess.fen();
+}
+
 export function validateSheet(moves: SheetMove[], uncertain: number[] = [], result?: string): ValidatedSheet {
   const chess = new Chess();
   const plies: Ply[] = [];

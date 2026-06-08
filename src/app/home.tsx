@@ -1,7 +1,8 @@
 // Home — two scan tiles + saved games rail. Ported from prototype.
 
+import { useCallback, useState } from 'react';
 import { ScrollView, Text, View, Pressable } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 import { Screen } from '@/components/ui/Screen';
 import { SettingsButton } from '@/components/ui/SettingsButton';
@@ -11,7 +12,7 @@ import { useApp } from '@/lib/AppContext';
 import { fenToPos } from '@/lib/board';
 import { SCAN_FEN } from '@/constants/chess';
 import { C } from '@/constants/colors';
-import { SAVED_GAMES, savedBoard } from '@/lib/mockData';
+import { boardForGame, loadGames, openGame } from '@/lib/games';
 import type { SavedGame } from '@/types/chess';
 
 function MiniSheetArt() {
@@ -59,11 +60,9 @@ function TypeChip({ type }: { type: 'P' | 'S' }) {
 }
 
 function SavedThumb({ game }: { game: SavedGame }) {
-  const b = savedBoard(game);
+  const b = boardForGame(game);
   return (
-    <Pressable
-      onPress={() => router.push({ pathname: '/review', params: { mode: game.type === 'P' ? 'position' : 'sheet', title: game.title } })}
-      className="w-[88px] active:opacity-70">
+    <Pressable onPress={() => openGame(game)} className="w-[88px] active:opacity-70">
       <View className="rounded-[10px] overflow-hidden border border-line dark:border-line-d">
         <Board position={b.pos} size={88} arrows={b.arrow ? [{ from: b.arrow[0], to: b.arrow[1], width: 4 }] : null} />
         <TypeChip type={game.type} />
@@ -76,6 +75,16 @@ function SavedThumb({ game }: { game: SavedGame }) {
 
 export default function Home() {
   const { t } = useApp();
+  const [games, setGames] = useState<SavedGame[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      loadGames().then((g) => { if (active) setGames(g); });
+      return () => { active = false; };
+    }, []),
+  );
+
   return (
     <Screen>
       <View className="flex-row items-center justify-between px-5 pb-1">
@@ -108,9 +117,18 @@ export default function Home() {
               <Icon name="arrowRight" size={16} strokeWidth={1.75} color={C.sage} />
             </View>
           </Pressable>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-4">
-            {SAVED_GAMES.map((g) => <SavedThumb key={g.id} game={g} />)}
-          </ScrollView>
+          {games.length === 0 ? (
+            <View className="rounded-[14px] border border-dashed border-line dark:border-line-d px-4 py-6 items-center">
+              <Icon name="bookmark" size={22} color={C.sub} />
+              <Text className="mt-2 text-[13px] text-sub dark:text-sub-d text-center">
+                No saved games yet. Scan a position or game, then tap Save.
+              </Text>
+            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-4">
+              {games.map((g) => <SavedThumb key={g.id} game={g} />)}
+            </ScrollView>
+          )}
         </View>
       </ScrollView>
     </Screen>
