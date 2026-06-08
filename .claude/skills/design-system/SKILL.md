@@ -82,6 +82,11 @@ Keep arbitrary values (`min-h-[52px]`, `rounded-[20px]`, `text-[16px]`) — Nati
   `style={{ lineHeight: N }}` for arbitrary line-heights.
 - Empty bordered circles (`w-6 h-6 rounded-full border-2 border-[#hex]`) rendered as a dark dash;
   for radio/indicator dots use inline `style={{ width, height, borderRadius, borderWidth, borderColor }}`.
+- On a NativeWind `Pressable`/component that has BOTH `className` and a `style` function,
+  inline **colors** (`backgroundColor`/`borderColor`) from the style function get dropped — put
+  bg/border **colors in className**, keep only shape (radius/padding/shadow/transform) inline.
+- A NativeWind `Pressable` with NO `className` (style-function only) won't stretch to full width
+  in a column — give it `className="w-full"` (or a className) rather than relying on `width:'100%'`.
 
 ## Fonts (Inter + Caveat)
 
