@@ -33,36 +33,34 @@ function Progress({ step, count, dark }: { step: number; count: number; dark: bo
   );
 }
 
-function Option({ label, active, onPress, disabled }: { label: string; active: boolean; onPress: () => void; disabled: boolean }) {
+function Option({ label, active, onPress, disabled, dark }: { label: string; active: boolean; onPress: () => void; disabled: boolean; dark: boolean }) {
   return (
     <Pressable
       disabled={disabled}
       onPress={onPress}
-      className={'flex-row items-center border ' +
-        (active ? 'bg-sage border-sage' : 'bg-card dark:bg-card-d border-line dark:border-line-d')}
+      className={'w-full flex-row items-center border-2 ' +
+        (active ? 'bg-sage/5 border-sage' : 'bg-card dark:bg-card-d border-line dark:border-line-d')}
       style={({ pressed }) => ({
-        minHeight: 74,
-        paddingHorizontal: 22,
-        paddingVertical: 14,
-        borderRadius: 20,
+        minHeight: 72,
+        paddingHorizontal: 18,
+        paddingVertical: 16,
+        borderRadius: 18,
         transform: [{ scale: pressed ? 0.985 : 1 }],
-        // identical, soft shadow in both states so shape stays consistent
         shadowColor: '#3c2d14',
-        shadowOpacity: 0.07,
+        shadowOpacity: 0.06,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 3 },
         elevation: 2,
       })}>
-      <Text className={'flex-1 font-semibold ' + (active ? 'text-white' : 'text-ink dark:text-ink-d')} style={{ fontSize: 18 }}>
+      {/* radio on the left, mirroring the paywall plan card */}
+      <View
+        className="items-center justify-center"
+        style={{ width: 26, height: 26, borderRadius: 13, marginRight: 14, ...(active ? { backgroundColor: C.sage } : { borderWidth: 2, borderColor: dark ? '#3a3d42' : '#D8CFC0' }) }}>
+        {active && <Icon name="check" size={15} strokeWidth={2.5} color={C.white} />}
+      </View>
+      <Text className="flex-1 text-ink dark:text-ink-d" style={{ fontSize: 17, fontWeight: '600' }}>
         {label}
       </Text>
-      {active ? (
-        <View className="w-7 h-7 rounded-full bg-white items-center justify-center ml-3">
-          <Icon name="check" size={16} strokeWidth={2.5} color={C.sage} />
-        </View>
-      ) : (
-        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#D8CFC0', marginLeft: 12 }} />
-      )}
     </Pressable>
   );
 }
@@ -137,7 +135,7 @@ export default function Quiz() {
 
         <View className="mt-9 gap-3.5">
           {q.options.map((opt) => (
-            <Option key={opt} label={opt} active={picked === opt} disabled={advancing.current} onPress={() => choose(opt)} />
+            <Option key={opt} label={opt} active={picked === opt} disabled={advancing.current} onPress={() => choose(opt)} dark={dark} />
           ))}
         </View>
       </Animated.View>
