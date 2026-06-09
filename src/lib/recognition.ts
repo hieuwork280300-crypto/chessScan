@@ -42,11 +42,23 @@ CRITICAL RULES:
 - "sideToMove": "w" unless the position clearly indicates Black to move.
 - "confidence": 0.0-1.0 by image clarity.`;
 
-const SHEET_PROMPT = `You are a chess score-sheet OCR expert. Extract every move from this handwritten or printed score sheet.
-Return ONLY JSON: { "moves": [{ "moveNumber": number, "white": string, "black": string }], "result": "1-0"|"0-1"|"1/2-1/2"|"*", "confidence": number, "uncertainMoves": number[] }
-- Transcribe SAN exactly as written (e.g. "Nf3", "exd5", "O-O", "Qxe7+"). Do NOT correct moves to be legal — that is validated later.
-- Omit "black" for a move number that has only a white move.
-- "uncertainMoves": move numbers where the handwriting is ambiguous.`;
+const SHEET_PROMPT = `You are an expert at reading chess score sheets (handwritten or printed). The sheet is a table with a move-number column and two move columns (White, then Black) per row. Many sheets split the game into two halves side by side (e.g. moves 1–20 on the left, 21–40 on the right) — read the LEFT block top-to-bottom first, then the RIGHT block, keeping move numbers in order.
+
+Return ONLY JSON:
+{ "moves": [{ "moveNumber": number, "white": string, "black": string }], "result": "1-0"|"0-1"|"1/2-1/2"|"*", "confidence": number, "uncertainMoves": number[] }
+
+CHESS NOTATION (SAN):
+- Pieces: K=King, Q=Queen, R=Rook, B=Bishop, N=Knight. A handwritten Knight may be written "N", "Kt", or look like "h". Pawn moves have NO piece letter (e.g. "e4", "exd5", "d8=Q").
+- Files are lowercase a–h; ranks are 1–8. Capture = "x" (sometimes ":"). Check "+", mate "#". Promotion "=Q".
+- Castling: "O-O" / "0-0" / "o-o" = kingside; "O-O-O" / "0-0-0" = queenside.
+- Ignore annotation marks ("!", "?", "!?"), clock times, arrows and scribbles.
+
+READING GUIDANCE (important for accuracy):
+- Replay the game mentally as you read. When handwriting is ambiguous, choose the reading that is a LEGAL move given the moves so far — e.g. "Be5" vs "Bc5", "0" vs "O", "8" vs "B", "a" vs "d", "1" vs "7". Add that move's number to "uncertainMoves".
+- Common confusions to resolve with chess logic: knight letter vs file letter; capital O (castle) vs zero; rank digits 1/7, 4/9; file letters b/h, a/d/e.
+- A row may have only a White move (game ended) — omit "black" there. Do NOT invent moves that aren't on the sheet.
+- "result": the score written at the bottom if present, else "*".
+- "confidence": 0–1 by overall legibility.`;
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
