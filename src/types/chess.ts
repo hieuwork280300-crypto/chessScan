@@ -3,6 +3,8 @@
 export type Color = 'w' | 'b';
 export type Square = string; // e.g. 'e4'
 export type Piece = string;  // e.g. 'wK', 'bN' (color + uppercase letter)
+export type PieceType = 'K' | 'Q' | 'R' | 'B' | 'N' | 'P';
+export type PieceCode = `${Color}${PieceType}`; // 'wK' | 'bN' | ... (the 12 valid pieces)
 export type Position = Record<Square, Piece>;
 
 export type Result = '1-0' | '½-½' | '0-1' | '*';

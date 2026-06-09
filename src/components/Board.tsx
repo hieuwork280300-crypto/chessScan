@@ -1,13 +1,17 @@
 // Board — 8×8 render with piece glyphs, coordinate labels, highlight/selected/last-move
 // overlays, and an SVG arrow layer. Ported from the prototype (white's view).
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Text, View } from 'react-native';
-import Svg, { G, Line, Polygon } from 'react-native-svg';
-import { FILES, GLYPH } from '@/constants/chess';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Svg, { G, Line, Polygon, SvgXml } from 'react-native-svg';
+import { FILES } from '@/constants/chess';
 import { C } from '@/constants/colors';
-import { squareXY } from '@/lib/board';
-import type { Position, Square } from '@/types/chess';
+import { PIECE_SVG } from '@/constants/pieces';
+import { squareTopLeft, squareXY } from '@/lib/board';
+import type { PieceCode, Position, Square } from '@/types/chess';
+
+const SLIDE_MS = 200;
 
 export interface Arrow {
   from: Square;
@@ -57,7 +61,6 @@ export function Board({
       {rows.map((row, ri) => (
         <View key={ri} style={{ flexDirection: 'row' }}>
           {row.map(({ sq, isLight, r, f }) => {
-            const piece = position[sq];
             const isSel = selected === sq;
             const isHl = highlight?.includes(sq);
             const isLast = lastMove && (lastMove.from === sq || lastMove.to === sq);
@@ -82,25 +85,80 @@ export function Board({
                     {FILES[f]}
                   </Text>
                 )}
-                {piece && (
-                  <Text
-                    style={{
-                      position: 'absolute', width: s, height: s, textAlign: 'center',
-                      lineHeight: s, fontSize: s * 0.68,
-                      color: piece[0] === 'w' ? '#FBF7EE' : '#262521',
-                      textShadowColor: piece[0] === 'w' ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.15)',
-                      textShadowOffset: { width: 0, height: 0.5 }, textShadowRadius: 0.8,
-                    }}>
-                    {GLYPH[piece[1]]}
-                  </Text>
-                )}
               </View>
             );
           })}
         </View>
       ))}
+      <PieceLayer position={position} squareSize={s} lastMove={lastMove} />
       <ArrowLayer size={size} arrows={arrows} />
     </View>
+  );
+}
+
+// Pieces live in their own absolute layer above the squares so a sliding piece
+// renders on top of every square it crosses. pointerEvents stays off so taps fall
+// through to the square grid (which owns onSquarePress).
+function PieceLayer({
+  position, squareSize, lastMove,
+}: { position: Position; squareSize: number; lastMove?: { from: Square; to: Square } | null }) {
+  const moveKey = lastMove ? lastMove.from + lastMove.to : '';
+  return (
+    <View style={{ position: 'absolute', inset: 0 }} pointerEvents="none">
+      {Object.entries(position).map(([sq, piece]) => (
+        <AnimatedPiece
+          key={sq}
+          piece={piece as PieceCode}
+          size={squareSize}
+          dest={squareTopLeft(sq, squareSize)}
+          from={lastMove?.to === sq && lastMove ? squareTopLeft(lastMove.from, squareSize) : null}
+          moveKey={moveKey}
+        />
+      ))}
+    </View>
+  );
+}
+
+// One piece sprite. When this square is the destination of the latest move, it
+// starts at the move's origin and slides home; otherwise it just sits at `dest`.
+function AnimatedPiece({
+  piece, size, dest, from, moveKey,
+}: {
+  piece: PieceCode;
+  size: number;
+  dest: { left: number; top: number };
+  from: { left: number; top: number } | null;
+  moveKey: string;
+}) {
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+
+  useEffect(() => {
+    if (!from) return;
+    tx.value = from.left - dest.left;
+    ty.value = from.top - dest.top;
+    tx.value = withTiming(0, { duration: SLIDE_MS });
+    ty.value = withTiming(0, { duration: SLIDE_MS });
+    // Re-run only when the move changes; dest/from are derived from it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moveKey]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: tx.value }, { translateY: ty.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute', left: dest.left, top: dest.top, width: size, height: size,
+          zIndex: from ? 2 : 1,
+          shadowColor: '#000', shadowOpacity: 0.22, shadowRadius: 2.5, shadowOffset: { width: 0, height: 1.5 },
+        },
+        animStyle,
+      ]}>
+      <SvgXml xml={PIECE_SVG[piece]} width={size} height={size} />
+    </Animated.View>
   );
 }
 

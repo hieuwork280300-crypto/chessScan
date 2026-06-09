@@ -73,7 +73,8 @@ export default function Settings() {
           <Row label={t('settings.version')} value="1.0.0" />
           <Row label={t('settings.terms')} right={<Icon name="chevronRight" size={18} color={sub(dark)} />} />
           <Row label={t('settings.privacy')} right={<Icon name="chevronRight" size={18} color={sub(dark)} />} />
-          <Row label={t('settings.contact')} right={<Icon name="chevronRight" size={18} color={sub(dark)} />} last />
+          <Row label={t('settings.contact')} right={<Icon name="chevronRight" size={18} color={sub(dark)} />} />
+          <Row label={t('settings.credits')} value={t('settings.creditsValue')} last />
         </Section>
       </ScrollView>
     </Screen>

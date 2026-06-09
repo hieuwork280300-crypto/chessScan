@@ -3,7 +3,7 @@
 // then a destination to move it. (Drag is a later enhancement.)
 
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
@@ -15,11 +15,14 @@ import { Segmented } from '@/components/ui/Segmented';
 import { Board } from '@/components/Board';
 import { Icon } from '@/components/Icon';
 import { useApp } from '@/lib/AppContext';
+import { SvgXml } from 'react-native-svg';
 import { fenToPos, posToFen } from '@/lib/board';
-import { SCAN_FEN, GLYPH } from '@/constants/chess';
+import { SCAN_FEN } from '@/constants/chess';
+import { PIECE_SVG } from '@/constants/pieces';
 import { C } from '@/constants/colors';
 import { getScan, patchScan } from '@/lib/scanStore';
-import type { Position, Square } from '@/types/chess';
+import { positionIssues } from '@/lib/validation';
+import type { PieceCode, Position, Square } from '@/types/chess';
 
 function initialFen(): string {
   const s = getScan();
@@ -29,18 +32,8 @@ function initialFen(): string {
 const PALETTE = ['wP', 'wN', 'wB', 'wR', 'wQ', 'wK', 'bP', 'bN', 'bB', 'bR', 'bQ', 'bK'] as const;
 type Brush = (typeof PALETTE)[number] | 'erase';
 
-function Glyph({ piece, size }: { piece: string; size: number }) {
-  return (
-    <Text
-      style={{
-        fontSize: size, lineHeight: size * 1.18, textAlign: 'center',
-        color: piece[0] === 'w' ? '#F6F1E7' : '#2A2620',
-        textShadowColor: piece[0] === 'w' ? 'rgba(0,0,0,.45)' : 'rgba(255,255,255,.18)',
-        textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 1,
-      }}>
-      {GLYPH[piece[1]]}
-    </Text>
-  );
+function Glyph({ piece, size }: { piece: PieceCode; size: number }) {
+  return <SvgXml xml={PIECE_SVG[piece]} width={size} height={size} />;
 }
 
 export default function ConfirmPosition() {
@@ -76,7 +69,13 @@ export default function ConfirmPosition() {
     }
   }
 
+  const issues = positionIssues(pos);
+
   function analyze() {
+    if (issues.errors.length) {
+      Alert.alert('Fix the position first', issues.errors.slice(0, 4).join('\n'));
+      return;
+    }
     const fen = posToFen(pos, turn);
     patchScan({ mode: 'position', fen });
     router.push({ pathname: '/review', params: { mode: 'position', fen } });
@@ -105,6 +104,25 @@ export default function ConfirmPosition() {
           <Board position={pos} size={300} selected={sel} dark={dark} onSquarePress={onSquare} />
         </View>
 
+        {(issues.errors.length > 0 || issues.warnings.length > 0) && (
+          <View
+            style={{
+              marginTop: 16, borderRadius: 12, padding: 12, borderWidth: 1,
+              borderColor: issues.errors.length ? '#C2533F' : C.amber,
+              backgroundColor: issues.errors.length ? (dark ? '#3a201c' : '#FBEAE6') : (dark ? '#39331f' : '#FAF3E0'),
+            }}>
+            <View className="flex-row items-center gap-1.5 mb-1">
+              <Icon name="alertCircle" size={15} color={issues.errors.length ? '#C2533F' : C.amber} />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: issues.errors.length ? '#C2533F' : C.amber }}>
+                {issues.errors.length ? 'This position looks off — fix before analyzing' : 'Possible misread — double-check'}
+              </Text>
+            </View>
+            {[...issues.errors, ...issues.warnings].slice(0, 3).map((m, i) => (
+              <Text key={i} className="text-ink dark:text-ink-d" style={{ fontSize: 12.5, lineHeight: 18 }}>• {m}</Text>
+            ))}
+          </View>
+        )}
+
         <View className="mt-5">
           <Segmented
             value={turn} onChange={setTurn}
@@ -127,7 +145,7 @@ export default function ConfirmPosition() {
                 key={pc} onPress={() => setBrush((b) => (b === pc ? null : pc))}
                 className={'w-[13%] aspect-square rounded-xl items-center justify-center border ' +
                   (active ? 'bg-sage/15 border-sage' : 'bg-card dark:bg-card-d border-line dark:border-line-d')}>
-                <Glyph piece={pc} size={24} />
+                <Glyph piece={pc} size={32} />
               </Pressable>
             );
           })}

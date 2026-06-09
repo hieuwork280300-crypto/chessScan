@@ -3,8 +3,41 @@
 // and replay stops there (a wrong move makes everything after it look illegal).
 
 import { Chess } from 'chess.js';
-import type { Ply, Square } from '@/types/chess';
+import type { Ply, Position, Square } from '@/types/chess';
 import type { SheetMove } from '@/lib/recognition';
+
+// ── Position sanity check ─────────────────────────────────────────────────────
+// Catches common recognition mistakes (e.g. 3 knights, 2 kings, a pawn on rank 1)
+// so the user can fix them on the Confirm screen before analyzing.
+export interface PositionIssues { errors: string[]; warnings: string[] }
+
+export function positionIssues(pos: Position): PositionIssues {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const values = Object.values(pos);
+  const n = (color: 'w' | 'b', piece: string) => values.filter((p) => p === color + piece).length;
+
+  for (const color of ['w', 'b'] as const) {
+    const name = color === 'w' ? 'White' : 'Black';
+    const K = n(color, 'K'), Q = n(color, 'Q'), R = n(color, 'R'), B = n(color, 'B'), N = n(color, 'N'), P = n(color, 'P');
+    if (K === 0) errors.push(`No ${name} king`);
+    else if (K > 1) errors.push(`${K} ${name} kings — only one allowed`);
+    if (P > 8) errors.push(`${P} ${name} pawns — max 8`);
+    const total = K + Q + R + B + N + P;
+    if (total > 16) errors.push(`${name} has ${total} pieces — max 16`);
+    // Extra non-pawn pieces must come from promoted pawns; each needs a missing pawn.
+    const extra = Math.max(0, Q - 1) + Math.max(0, R - 2) + Math.max(0, B - 2) + Math.max(0, N - 2);
+    if (extra > Math.max(0, 8 - P)) {
+      warnings.push(`${name} has too many of one piece type — likely a misread`);
+    }
+  }
+  for (const [sq, p] of Object.entries(pos)) {
+    if (p[1] === 'P' && (sq[1] === '1' || sq[1] === '8')) {
+      errors.push(`A pawn is on ${sq} — pawns can’t be on rank 1 or 8`);
+    }
+  }
+  return { errors, warnings };
+}
 
 export type MoveFlag = 'ok' | 'uncertain' | 'invalid';
 

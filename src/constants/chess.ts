@@ -2,11 +2,7 @@
 
 export const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
 
-// Unicode chess glyphs (filled set; color comes from text style).
-export const GLYPH: Record<string, string> = {
-  K: '♚', Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟',
-};
-
+// Piece art now lives in @/constants/pieces (Cburnett SVG set). Names stay here.
 export const PIECE_NAME: Record<string, string> = {
   K: 'King', Q: 'Queen', R: 'Rook', B: 'Bishop', N: 'Knight', P: 'Pawn',
 };

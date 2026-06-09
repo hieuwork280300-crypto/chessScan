@@ -46,6 +46,13 @@ export function squareXY(sq: Square, sz: number): { x: number; y: number } {
   return { x: (file + 0.5) * s, y: (8 - rank + 0.5) * s };
 }
 
+// White's view: top-left corner of a square in px (for absolutely-placed piece sprites).
+export function squareTopLeft(sq: Square, squareSize: number): { left: number; top: number } {
+  const file = FILES.indexOf(sq[0] as (typeof FILES)[number]);
+  const rank = parseInt(sq[1], 10);
+  return { left: file * squareSize, top: (8 - rank) * squareSize };
+}
+
 // Fold plies onto a starting position; returns array of length plies.length + 1.
 export function computeLinePositions(startPos: Position, plies: Ply[]): Position[] {
   const out: Position[] = [startPos];
